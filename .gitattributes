@@ -1,0 +1,8 @@
+# Every artifact in this repo is hashed (JCS/SHA-256 ledger chain, CT entry hashes,
+# canonical-text SHA-256s). A CRLF checkout on Windows would change the bytes that
+# `git show` hands the append-only guards, so the whole tree is pinned to LF.
+* text=auto eol=lf
+
+# Nothing here is binary today, but keep the door closed rather than ajar.
+*.png binary
+*.pdf binary

@@ -1,0 +1,150 @@
+name: registry-ci
+
+on:
+  push: { branches: [main] }
+  pull_request:
+  # The artifact plane is regenerated daily so a rebuild that would fail is discovered on
+  # a quiet day rather than on the day someone needs to merge (FS02-062: index-build-lite
+  # is triggered by pushes, registry changes, and a daily cron).
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+
+# This workflow only validates and gates. It never writes to the repository, never
+# publishes, and needs NO SECRETS — there is nothing in this repo that a token could be
+# useful for. Least privilege is therefore literal: read the contents, nothing else.
+permissions:
+  contents: read
+
+concurrency:
+  group: registry-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        # Full history: the append-only guards compare the ledger and the CT log against a
+        # BASE REVISION, and at the default fetch-depth of 1 that revision is not present —
+        # the guards would announce themselves skipped on every run (they say so out loud,
+        # but a permanently skipped guard is a guard nobody has).
+        with: { fetch-depth: 0 }
+
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+
+      - name: Install
+        run: npm ci
+
+      # ---------------------------------------------------------------- copy law
+      - name: Copy law (banned terms)
+        # Narrow by design: a grep cannot tell a permitted MENTION of open source from a
+        # forbidden self-description (MARKETING §1 rule 2), so this gate bans only the
+        # enumerated hard cases and a human reviews prose. The canonical pattern file
+        # lives in {ORG}/website at copy-lint/banned.txt (MKT-018); this is a vendored
+        # subset. See the header of scripts/check-copy.mjs.
+        run: npm run check:copy
+
+      # ---------------------------------------------------------- registry validation
+      - name: Validate every registry entry
+        # FS02-061 + FS02-063: schema, filename agreement, node_id uniqueness and
+        # decodability, enum membership, date sanity, the conditional weight-class
+        # approval rule, the no-PII rule, and the ban on waivers ever entering the
+        # registry (D14). Any failure fails the build — a broken registry never
+        # half-publishes, because a half-published registry makes public claims about
+        # other people's repositories.
+        run: npm run validate
+
+      # ------------------------------------------------------------ the artifact plane
+      - name: Build the artifact plane (index-build-lite)
+        # No GENERATED_AT is set, so the timestamp comes from the HEAD commit date. That
+        # is deliberate: it makes the output of a given commit reproducible by anyone with
+        # that commit, and it means an unchanged tree rebuilds to identical bytes
+        # (FS02-084's "ETags change only on changed files").
+        run: npm run build
+
+      - name: Assert the emitted artifact set is exactly the FS-00 §6.2 catalog
+        # Derives the expected path set a SECOND time, straight from the sources, and
+        # compares. Also asserts the honesty invariants: empty waiver lists, no CHF figure
+        # while nothing has been routed, no impact vocabulary, schemaVersion/generatedAt
+        # on every artifact, and NO `example: true` identifier anywhere in the output.
+        run: npm run check:artifacts
+
+      - name: Build and check the demo plane (examples + fixture ledger/CT included)
+        # The published plane is empty until real repositories are curated, which makes
+        # most per-repo assertions above vacuous — and the check says so rather than
+        # reporting a confident pass. This step holds the other end: it builds the same
+        # generator over the seeded examples and the fixture ledger/CT so every artifact
+        # SHAPE is exercised on every run. Its output is never publishable.
+        run: |
+          npm run build:demo
+          npm run check:artifacts:demo
+
+      # ----------------------------------------------------- append-only enforcement
+      - name: Resolve the append-only baseline
+        # The base revision the ledger and CT guards compare against:
+        #   * pull_request -> the merge base, so a PR is judged against what main holds;
+        #   * push         -> the commit that was there before, so a direct push is judged
+        #                     against what was published;
+        #   * schedule / dispatch -> HEAD^, i.e. nothing new should have appeared.
+        # An unresolvable value is NOT an error here: the guards report the skip and the
+        # chain checks still run. It IS worth reading the log line, though — a permanently
+        # skipped guard means retro-edits are not being caught.
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "PSN_BASE_REF=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_ENV"
+          elif [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            echo "PSN_BASE_REF=${{ github.event.before }}" >> "$GITHUB_ENV"
+          else
+            echo "PSN_BASE_REF=HEAD^" >> "$GITHUB_ENV"
+          fi
+
+      - name: Verify the ledger chain and the append-only law
+        # Recomputes every row hash from genesis AND compares against the baseline. Both
+        # halves are needed: the chain proves internal consistency, while a rewrite that
+        # re-hashes the whole chain is internally perfect and only the baseline sees it.
+        run: npm run verify:ledger
+
+      - name: Verify the certificate-transparency log
+        # Monotonic sequence, well-formed and unique hashes, revocations referencing
+        # earlier entries, the segment hash chain, no type v0 cannot issue, no personal
+        # data (CERT-031), and nothing edited or deleted since the baseline.
+        run: npm run verify:ct
+
+      # ------------------------------------------------------------------- unit tests
+      - name: Unit and gate tests
+        run: npm run test:unit
+
+      # ------------------------------------------------------------------- hygiene
+      - name: Nothing generated is committed
+        run: |
+          # dist/ and dist-demo/ are regenerated on every run. A committed copy could
+          # drift from its sources with nothing going red, which is the exact failure mode
+          # the whole two-derivations design exists to prevent.
+          for p in dist dist-demo node_modules; do
+            if git ls-files --error-unmatch "$p" >/dev/null 2>&1; then
+              echo "::error::$p is tracked in git. It is generated output and must stay ignored."
+              exit 1
+            fi
+          done
+          # And the working tree must be clean after a full run: every gate above reads,
+          # none of them writes into tracked files.
+          if ! git diff --exit-code --quiet; then
+            echo "::error::the working tree changed during CI — a gate wrote to a tracked file."
+            git diff --stat
+            exit 1
+          fi
+          echo "clean"
+
+      - name: Line endings are LF
+        run: |
+          # Every artifact in this repo is hashed, so a CRLF checkout would change the
+          # bytes the append-only guards compare. .gitattributes pins the tree to LF; this
+          # asserts nobody committed CRLF past it.
+          if git grep -Il $'\r' -- ':!*.png' ':!*.pdf' >/dev/null 2>&1; then
+            echo "::error::CRLF found in a tracked text file — the tree is LF-only (see .gitattributes)."
+            git grep -Il $'\r' -- ':!*.png' ':!*.pdf'
+            exit 1
+          fi
+          echo "LF only"

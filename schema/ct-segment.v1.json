@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://purposesource.org/schemas/ct-segment/v1.json",
+  "title": "Certificate-transparency log segment (v1)",
+  "description": "One segment of the flat append-only certificate-transparency log: ct/{n}.json. The shape is FS-08 §12.1 (FS08-111) verbatim; at v0 the log is exactly one committed file, ct/0.json, appended by PR (FS08-113, VS-28). Entries carry hash, type, kind, ref and timestamp and NO PERSONAL DATA (CERT-031) — that is what makes the log GDPR-compatible and therefore immutable forever. scripts/ct-verify.mjs enforces append-only, monotonicity, well-formedness, the segment chain, and the no-personal-data rule.",
+
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "segment", "startSeq", "prevSegmentSha256", "entries"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "segment": {
+      "description": "Segment number. v0 has only segment 0; rotation begins at P-M3 with segment 0 carried forward unchanged (FS08-113).",
+      "type": "integer",
+      "minimum": 0
+    },
+    "startSeq": {
+      "description": "Global sequence number of this segment's first entry. Must equal segment * entriesPerSegment (config/publish.json).",
+      "type": "integer",
+      "minimum": 0
+    },
+    "prevSegmentSha256": {
+      "description": "SHA-256 of the previous segment file's bytes; null for segment 0. This is what makes retroactive tampering provable across segment boundaries (FS08-135).",
+      "type": ["string", "null"],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "entries": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/entry" }
+    }
+  },
+
+  "definitions": {
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seq", "h", "typ", "kind", "ref", "ts"],
+      "properties": {
+        "seq": {
+          "description": "Global monotonic sequence number, contiguous and strictly increasing from the segment's startSeq.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "h": {
+          "description": "SHA-256 of the compact JWS string (CERT-030) — the hash of the SIGNED OBJECT, not of any rendered PDF. That is why a certificate's PDF need not be byte-deterministic at v0 (CERT-081) and why a signature that never landed in the log is harmless: verification requires log presence.",
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "typ": {
+          "description": "JWS family. The first five values are the FS-00 §6.4 frozen certificate types; only `supporter` (payment certificate) and `license-status` (status certificate) are issuable at v0 (VS-30). `entitlement-record` and `ct-checkpoint` are the two NON-certificate JWS families that the v0 operator script also CT-appends (VS-27, FS08-113) — they are recorded here so a real v0 log validates. [HUMAN DECISION] If {ORG}/spec freezes different tokens for those two families, this enum is the single place to change.",
+          "enum": [
+            "contributor",
+            "steward",
+            "supporter",
+            "license-status",
+            "topup",
+            "entitlement-record",
+            "ct-checkpoint"
+          ]
+        },
+        "kind": {
+          "description": "`issue` for a new object; `revoke` and `status` for later events, which are NEW ENTRIES referencing the original hash — the log never edits (CERT-033).",
+          "enum": ["issue", "revoke", "status"]
+        },
+        "ref": {
+          "description": "For `revoke`/`status`, the `h` of the original entry; null for `issue`. ct-verify.mjs additionally requires the referenced hash to exist at a LOWER seq.",
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "ts": {
+          "description": "UTC ISO-8601 instant, `Z` offset, second precision. Non-decreasing across the log.",
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+        }
+      }
+    }
+  }
+}

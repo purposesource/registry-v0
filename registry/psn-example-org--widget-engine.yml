@@ -1,0 +1,47 @@
+# SEEDED EXAMPLE — NOT A REAL REGISTRATION. See the header of
+# registry/psn-example-lab--purpose-demo.yml for why the seeded examples exist and how
+# they are kept out of every published artifact.
+#
+# This one is in state `quit`: the project changed its LICENSE away, which is documented
+# at parity with adoption (WEB-035) and carries no notification duty. It exists so the
+# build's neutral-badge branch is exercised — a badge on a repository that quit must
+# never keep asserting registration (WEB-085), and that is the single most damaging
+# honesty failure this system could ship.
+#
+# It also uses the current `R_`-prefixed node_id form and a `major` weight class, so the
+# approval-reference rule (FS02-071) has a passing case.
+
+schema: registry-v0/1
+example: true
+
+node_id: R_kgDOEXAMPLE0001
+owner: psn-example-org
+name: widget-engine
+default_branch: main
+
+state: quit
+# Required for `quit` and `delisted`: the public page is a neutral tombstone that names a
+# reason CLASS (WEB-075). A page with no reason reads as an accusation.
+state_note: licence removed by the project
+
+license:
+  id: PurposeSource-1.0
+  version: "1.0"
+  published: "2026-11-01"
+  adopted: "2026-11-20"
+  text_sha256: b3816f7d86f5a96fc784557afb272c5fbbe0da2f0d86949efde6a77ca7bb5531
+
+weight_class: major
+weight_class_approval_ref: https://github.com/purposesource/registry-v0/issues/1
+
+inbound_family: copyleft
+
+contacts:
+  admin_logins:
+    - psn-example-admin
+    - psn-example-maintainer
+
+curation:
+  source: discovery
+  recorded_at: "2026-11-21T14:00:00Z"
+  review_ref: https://github.com/purposesource/registry-v0/issues/2

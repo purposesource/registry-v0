@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "_comment": [
+    "Publication constants for the v0 artifact plane. Every substitutable name lives",
+    "HERE and nowhere else, so an org rename or a domain change is a one-file diff",
+    "(FS-00 §6: {ORG} and {DOMAIN} substitute mechanically). Scripts read this file;",
+    "no script hardcodes an org, a host, or a schema version.",
+    "The GitHub org name is proposed and pending final confirmation."
+  ],
+
+  "org": "purposesource",
+  "domain": "purposesource.org",
+  "siteOrigin": "https://purposesource.org",
+  "apiOrigin": "https://api.purposesource.org",
+
+  "_comment_verify": [
+    "FS-00 §6.4 as amended 2026-09-01: the frozen exclusive-verify wording. The human",
+    "verify page owns the statement; machine endpoints are documented separately and",
+    "are never printed as the canonical host. Copy this string, never re-word it."
+  ],
+  "verifyStatement": "verify only at purposesource.org/verify",
+
+  "_comment_licence": [
+    "D9: every covered version converts to plain Apache-2.0 on the FOURTH anniversary",
+    "of that version's publication date. index-build-lite derives each repo record's",
+    "conversionDate from the entry's license.published + this many years — the registry",
+    "never stores a computed date."
+  ],
+  "apacheConversionYears": 4,
+
+  "badge": {
+    "_comment": [
+      "FS-10 §5 (FS10-030/031/033) shields.io endpoint schema, verbatim. NOTE: the badge",
+      "body's `schemaVersion: 1` is SHIELDS' own required constant, not this plane's",
+      "artifact version, and shields validates the object it receives - so a badge carries",
+      "exactly label/message/color/cacheSeconds and never a `generatedAt`. That is the one",
+      "artifact whose body another specification owns; scripts/check-artifacts.mjs records",
+      "it as a named exception rather than a silent one."
+    ],
+    "label": "purpose source",
+    "registered": { "message": "registered", "color": "brightgreen" },
+    "neutral": { "message": "status: see registry", "color": "lightgrey" },
+    "unregistered": { "message": "not registered", "color": "inactive" },
+    "cacheSeconds": 3600
+  },
+
+  "stats": {
+    "_comment": [
+      "FS-10 §10 is the authoritative /stats.json schema; VS-19 owns the three-state",
+      "machine and the honest-null rules. `firstDisbursementScheduledFor` is set BY HAND",
+      "here when a real date exists and is published; it is never guessed. `loi` stays",
+      "null unless URS OPEN-17 resolves public."
+    ],
+    "reportingCurrency": "CHF",
+    "firstDisbursementScheduledFor": null,
+    "loi": null,
+    "smallnessThresholds": { "projects": 25, "contributors": 50, "companies": 10 }
+  },
+
+  "artifactSchemaVersions": {
+    "_comment": [
+      "Every emitted artifact carries `schemaVersion` (FS-00 §6.2). These are the v0",
+      "values; the machine-readable contracts themselves are published in {ORG}/spec,",
+      "and a bump here without a matching bump there is a defect."
+    ],
+    "registryIndexMeta": 1,
+    "registryIndexShard": 1,
+    "registryRepo": 1,
+    "registryExport": 1,
+    "badge": 1,
+    "waivers": 1,
+    "stats": 1,
+    "ledgerMonth": 1,
+    "ledgerChain": 1,
+    "ctSegment": 1
+  },
+
+  "ledger": {
+    "_comment": [
+      "FS-07 §5.2: one global append-ordered hash chain, genesis prev_hash = 64 zeros.",
+      "`monthCloseDayOfMonth` + `monthCloseOffsetMonths` encode VS-36's month-immutability",
+      "rule: month M is CLOSED from day 3 of month M+2, which is when FS07-050's allocator",
+      "would lock it (the M+1 chargeback hold having fully elapsed). A closed month file",
+      "may not change at all — see scripts/ledger-verify.mjs."
+    ],
+    "genesisHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "monthCloseOffsetMonths": 2,
+    "monthCloseDayOfMonth": 3
+  },
+
+  "ct": {
+    "_comment": [
+      "FS-08 §12 (FS08-111/113): flat append-only log, fixed 10,000 entries per closed",
+      "segment, chained by hash. v0 is exactly segment 0."
+    ],
+    "entriesPerSegment": 10000,
+    "genesisPrevSegmentSha256": null
+  }
+}

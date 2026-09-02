@@ -1,0 +1,30 @@
+CC0 1.0 Universal — Public Domain Dedication
+SPDX-License-Identifier: CC0-1.0
+
+This file covers the DATA in this repository, namely:
+
+    registry/**      the curated registry entries
+    ledger/**        the committed monthly ledger table
+    ct/**            the committed certificate-transparency log segments
+    config/**        the published publication constants and the category-fund menu
+
+To the extent possible under law, the publisher has waived all copyright and related
+or neighboring rights to that data and dedicated it to the public domain worldwide.
+The data is offered "as is", without warranties of any kind. No trademark or patent
+rights held by the publisher are waived, licensed, or otherwise affected by this
+dedication, and no endorsement is implied.
+
+The canonical legal code of CC0 1.0 Universal is published at:
+
+    https://creativecommons.org/publicdomain/zero/1.0/legalcode
+
+TOOLING IS NOT DATA. Everything under scripts/, schema/, tests/, and .github/ is
+licensed under the Apache License, Version 2.0 — see the LICENSE file. The split is
+deliberate: the registry is a public fact set that anyone may mirror, fork, or
+re-publish without condition, while the tooling carries Apache-2.0's patent grant and
+notice requirements. README.md, "Licensing", states the same split.
+
+[HUMAN TODO before this repository is made public] Vendor the full CC0 1.0 legal code
+into this file, verbatim from the URL above, replacing the summary paragraph. A
+dedication note is enough for a pre-launch scaffold; it is not enough for a public
+data release.

@@ -1,0 +1,21 @@
+# FIXTURE — used only by tests/. Never part of the registry.
+# state: verified  -> listed, repo record, `registered` badge, shard `a`.
+schema: registry-v0/1
+node_id: R_kgDOFIXTUREA001
+owner: psn-fixture-a
+name: alpha-tool
+default_branch: main
+state: verified
+license:
+  id: PurposeSource-1.0
+  version: "1.0"
+  published: "2026-11-01"
+  adopted: "2026-11-05"
+  text_sha256: eb5ff3ec8869627666e2b4cdde4b26e743bd799213d4a426d4ee5790be1569ba
+weight_class: standard
+inbound_family: permissive
+impact_category_defaults:
+  - health
+contacts:
+  admin_logins:
+    - psn-fixture-admin

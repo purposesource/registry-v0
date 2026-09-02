@@ -1,0 +1,63 @@
+{
+  "schema": "ledger-v0/1",
+  "month": "2026-11",
+  "rows": [
+    {
+      "led_id": "led_01jd0000000000000000000001",
+      "seq": 1,
+      "month": "2026-11",
+      "row_type": "month-note",
+      "amount_minor": 0,
+      "currency": "CHF",
+      "hold_status": "not-applicable",
+      "note": "FIXTURE month opened. Test data only.",
+      "emitting_job": "operator:record-purchases",
+      "created_at": "2026-11-01T00:00:00Z",
+      "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "row_hash": "b9060a9086e532a11eab7437690855a34d330e4d759e024fe4ea7cd4f9588aac"
+    },
+    {
+      "led_id": "led_01jd0000000000000000000002",
+      "seq": 2,
+      "month": "2026-11",
+      "row_type": "pool-in",
+      "amount_minor": 250000,
+      "currency": "CHF",
+      "lane": "project",
+      "hold_status": "released",
+      "payer_name": "unnamed",
+      "ent_id": "ent_01jd000000000000000000000a",
+      "co_id": "co_01jd000000000000000000000a",
+      "schedule_version": "schedule-v1",
+      "external_key": "fixture-txn-0001",
+      "emitting_job": "operator:record-purchases",
+      "created_at": "2026-11-12T10:15:00Z",
+      "prev_hash": "b9060a9086e532a11eab7437690855a34d330e4d759e024fe4ea7cd4f9588aac",
+      "row_hash": "fb2a51f27f6eaad1dcdccbe317a8804f51a161ce1167686fcd6a8f2b912e43fa"
+    },
+    {
+      "led_id": "led_01jd0000000000000000000003",
+      "seq": 3,
+      "month": "2026-11",
+      "row_type": "pool-in",
+      "amount_minor": 88450,
+      "currency": "CHF",
+      "src_amount_minor": 99000,
+      "src_currency": "USD",
+      "fx_rate": "0.89343434",
+      "fx_source": "fixture-fx-feed",
+      "fx_date": "2026-11-18",
+      "lane": "project",
+      "hold_status": "released",
+      "payer_name": "Example Industries AG",
+      "ent_id": "ent_01jd000000000000000000000b",
+      "co_id": "co_01jd000000000000000000000b",
+      "schedule_version": "schedule-v1",
+      "external_key": "fixture-txn-0002",
+      "emitting_job": "operator:record-purchases",
+      "created_at": "2026-11-18T08:00:00Z",
+      "prev_hash": "fb2a51f27f6eaad1dcdccbe317a8804f51a161ce1167686fcd6a8f2b912e43fa",
+      "row_hash": "ecb2776f97dd63ecf970e58c87fc1fd9838d51da0f71d1a0223131aada41d6ff"
+    }
+  ]
+}

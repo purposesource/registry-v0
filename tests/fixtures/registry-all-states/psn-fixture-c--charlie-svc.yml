@@ -1,0 +1,18 @@
+# FIXTURE. state: suspended -> listed with a neutral badge (WEB-085).
+schema: registry-v0/1
+node_id: R_kgDOFIXTUREC003
+owner: psn-fixture-c
+name: charlie-svc
+default_branch: main
+state: suspended
+license:
+  id: PurposeSource-1.0
+  version: "1.0"
+  published: "2026-11-01"
+  adopted: "2026-11-07"
+  text_sha256: f7287f01775bd68f239e8c3a772d4addf8ec50297a34a288a608c3ba38cce0b2
+weight_class: standard
+inbound_family: unknown
+contacts:
+  admin_logins:
+    - psn-fixture-admin

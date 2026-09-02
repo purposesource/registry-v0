@@ -1,0 +1,25 @@
+# FS02-060: registry-v0 is PR-based and operator-merged. There is no self-service write
+# path at v0 — every change to the registry, the ledger, or the CT log is reviewed and
+# merged by the steward operator.
+#
+# [HUMAN TODO] Replace the placeholder team with the real one once the GitHub org exists
+# and branch protection is configured. A CODEOWNERS file naming a team that does not
+# exist silently reviews nothing, which is worse than no file: GitHub cannot request a
+# review from a non-existent owner, so a "required review from Code Owners" rule can be
+# satisfied by nobody at all. Verify on the org's first PR that a review is actually
+# requested.
+
+*                       @purposesource/stewards
+
+# The three append-only trees. Same owner today; called out separately because the review
+# question is different — for these the reviewer is checking that nothing EARLIER changed,
+# which is a different read from reviewing a new registry entry.
+/ledger/                @purposesource/stewards
+/ct/                    @purposesource/stewards
+/registry/              @purposesource/stewards
+
+# The contracts and the gates. A change here changes what the data is allowed to be.
+/schema/                @purposesource/stewards
+/scripts/               @purposesource/stewards
+/config/                @purposesource/stewards
+/.github/               @purposesource/stewards

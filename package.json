@@ -1,0 +1,28 @@
+{
+  "name": "purposesource-registry-v0",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Phase-D curated registry and the index-build-lite job that emits the v0 public artifact plane.",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "validate": "node scripts/validate-registry.mjs",
+    "build": "node scripts/index-build-lite.mjs",
+    "build:demo": "node scripts/index-build-lite.mjs --include-examples --ledger-dir tests/fixtures/ledger --ct-dir tests/fixtures/ct --out dist-demo",
+    "check:artifacts": "node scripts/check-artifacts.mjs",
+    "check:artifacts:demo": "node scripts/check-artifacts.mjs --dir dist-demo --expect-examples --ledger-dir tests/fixtures/ledger --ct-dir tests/fixtures/ct",
+    "check:copy": "node scripts/check-copy.mjs",
+    "verify:ledger": "node scripts/ledger-verify.mjs",
+    "verify:ct": "node scripts/ct-verify.mjs",
+    "test:unit": "node --test \"tests/*.test.mjs\"",
+    "test": "npm run validate && npm run check:copy && npm run build && npm run check:artifacts && npm run build:demo && npm run check:artifacts:demo && npm run verify:ledger && npm run verify:ct && npm run test:unit"
+  },
+  "devDependencies": {
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "js-yaml": "4.1.0"
+  }
+}

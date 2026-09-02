@@ -1,0 +1,20 @@
+# FIXTURE. state: delisted -> neutral badge + tombstone reason class; the leading digit
+# puts it in the `0` shard, which is the only test of that branch.
+schema: registry-v0/1
+node_id: R_kgDOFIXTURED004
+owner: psn-fixture-d
+name: 9lives
+default_branch: main
+state: delisted
+state_note: moderation decision under appeal
+license:
+  id: PurposeSource-1.0
+  version: "1.0"
+  published: "2026-11-01"
+  adopted: "2026-11-08"
+  text_sha256: a1e9688ac28dff33c532ad55bf04d243078c8b22372f36efba2fdea0f6a33605
+weight_class: standard
+inbound_family: permissive
+contacts:
+  admin_logins:
+    - psn-fixture-admin

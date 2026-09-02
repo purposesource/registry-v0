@@ -1,0 +1,6 @@
+{
+  "schema": "ledger-v0/1",
+  "month": "2026-09",
+  "note": "No money has moved. This file is the honest empty state of the v0 ledger table (FS07-100, VS-37): the table exists, the chain starts at genesis, and there is nothing in it. An absent file would be indistinguishable from a broken build; a fabricated row would be a claim about the world. Rows are appended only by the operator recording script, only by pull request, and never edited afterwards.",
+  "rows": []
+}

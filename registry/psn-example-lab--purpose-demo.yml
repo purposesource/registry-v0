@@ -1,0 +1,50 @@
+# SEEDED EXAMPLE — NOT A REAL REGISTRATION.
+#
+# `example: true` keeps this entry out of every published artifact
+# (scripts/index-build-lite.mjs excludes it; scripts/check-artifacts.mjs fails the build
+# if its identifiers appear in dist/). It exists so the validator, the build, the artifact
+# checks and the tests all have real data to run against — a pipeline that has only ever
+# run over an empty directory is not a tested pipeline.
+#
+# The owner is deliberately fictional and prefixed with the internal codename so nobody
+# mistakes it for a real project. This entry uses the LEGACY GitHub node_id form, which
+# scripts/validate-registry.mjs base64-decodes and checks, so that code path is exercised
+# too.
+#
+# This one is in state `verified`: it gets an index row, a repo record, and a
+# `registered` badge.
+
+schema: registry-v0/1
+example: true
+
+node_id: MDEwOlJlcG9zaXRvcnk5MDEyMzQ1Njc=
+owner: psn-example-lab
+name: purpose-demo
+default_branch: main
+
+state: verified
+
+license:
+  id: PurposeSource-1.0
+  version: "1.0"
+  published: "2026-11-01"
+  adopted: "2026-12-04"
+  text_sha256: fbf890036e2a7c51079f3b8740c688edcbaac2a29b750f88f78502f2416f7103
+
+weight_class: standard
+inbound_family: permissive
+
+# Optional. Slugs come from the curated menu in config/category-funds.json only (D16);
+# absent means the steward default applies (FS02-050 tier 3).
+impact_category_defaults:
+  - climate
+  - education
+
+contacts:
+  admin_logins:
+    - psn-example-admin
+  public_contact_url: https://example.org/purpose-demo/contact
+
+curation:
+  source: self-registration
+  recorded_at: "2026-12-05T09:30:00Z"

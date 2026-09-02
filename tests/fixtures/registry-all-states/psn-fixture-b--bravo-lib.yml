@@ -1,0 +1,18 @@
+# FIXTURE. state: detected -> counted in meta/stats only; no shard row, no record, no badge.
+schema: registry-v0/1
+node_id: R_kgDOFIXTUREB002
+owner: psn-fixture-b
+name: bravo-lib
+default_branch: trunk
+state: detected
+license:
+  id: PurposeSource-1.0
+  version: "1.0"
+  published: "2026-11-01"
+  adopted: "2026-11-06"
+  text_sha256: 2ecf15025dc9dfada83b8a4d5f123350c8eb435050e9cfd8f70c1f24c8b5ae27
+weight_class: standard
+inbound_family: none
+contacts:
+  admin_logins:
+    - psn-fixture-admin

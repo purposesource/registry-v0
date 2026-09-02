@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "_comment": [
+    "The curated category-fund menu (ENG-033, D16): 5-8 funds, steward-published, never",
+    "free text. A registry entry's `impact_category_defaults` slugs resolve ONLY against",
+    "this menu; an unknown slug is a validation failure, not a warning.",
+    "",
+    "SOURCE OF TRUTH: {ORG}/spec publishes the machine-readable menu. This file is the",
+    "self-contained vendored copy this repo validates against, and",
+    "scripts/validate-registry.mjs asserts that the `slug` set here is EQUAL to the enum",
+    "in schema/registry-entry.v1.json — the two cannot drift apart silently.",
+    "",
+    "PROVISIONAL: the fund set, its names, and its baskets are Schedule-owned and are not",
+    "settled. `provisional: true` marks that; flip it to false only when the Schedule",
+    "publishes the menu. `fund_id` follows the FS-07 `cat-*` convention used by",
+    "`category_funds.fund_id`."
+  ],
+  "provisional": true,
+  "funds": [
+    { "slug": "climate", "fund_id": "cat-climate", "name": "Climate and environment" },
+    { "slug": "health", "fund_id": "cat-health", "name": "Health" },
+    { "slug": "education", "fund_id": "cat-education", "name": "Education" },
+    { "slug": "water-sanitation", "fund_id": "cat-water-sanitation", "name": "Water and sanitation" },
+    { "slug": "food-security", "fund_id": "cat-food-security", "name": "Food security" },
+    { "slug": "digital-access", "fund_id": "cat-digital-access", "name": "Digital access" }
+  ]
+}

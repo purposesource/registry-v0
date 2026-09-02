@@ -1,0 +1,17 @@
+node_modules/
+
+# Build output of scripts/index-build-lite.mjs. Deliberately NOT committed: the
+# artifact plane is regenerated from registry/ + ledger/ + ct/ on every CI run, and a
+# committed copy could drift from its sources without anything failing.
+/dist/
+# The demo build (examples + fixture ledger/CT included). Never publishable.
+/dist-demo/
+
+# Scratch output of the verify scripts' --base-dir mode.
+/.base-snapshot/
+# Test workspaces. tests/helpers.mjs copies fixture trees here because the gates resolve
+# --dir relative to the repository root, so a temp dir outside the repo would not work.
+/.tmp-*/
+
+.DS_Store
+Thumbs.db

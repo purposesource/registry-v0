@@ -1,0 +1,20 @@
+# FIXTURE. state: quit -> neutral badge; `major` weight class exercises the approval rule.
+schema: registry-v0/1
+node_id: R_kgDOFIXTUREE005
+owner: psn-fixture-e
+name: delta-kit
+default_branch: main
+state: quit
+state_note: licence removed by the project
+license:
+  id: PurposeSource-1.0
+  version: "1.0"
+  published: "2026-11-01"
+  adopted: "2026-11-09"
+  text_sha256: 10b506c39fd3d5b8a43c1492b0f58c5edb35b9e2646f73b38fa06f4bc8a44f01
+weight_class: major
+weight_class_approval_ref: https://example.org/approval/1
+inbound_family: copyleft
+contacts:
+  admin_logins:
+    - psn-fixture-admin
