@@ -52,7 +52,7 @@ const PATTERNS = [
   },
   {
     re: /\bnobody profits\b/i,
-    why: 'Never utter: processors, intermediaries, contractors and any future staff are paid. The canonical form is "No distributable private profit — structurally, not by policy. Operating costs are capped and published."',
+    why: 'Never utter: processors, intermediaries, contractors and any future staff are paid. The canonical form is "No distributable private profit — structurally, not by policy. The direct costs charged to Purpose Fees are capped and published to the invoice, and any cost support is listed by name." (MARKETING §3 as amended by D29, 2026-09-05)',
   },
   {
     re: /every (?:franc|dollar|euro) (?:traceable|visible)/i,
@@ -60,7 +60,7 @@ const PATTERNS = [
   },
   {
     re: /100\s*%\s*(?:of\s+\w+\s+)?(?:goes\s+)?to\s+charit/i,
-    why: 'Uncapped "100% to charity" is banned: an operating-cost levy exists and is capped and published. State the capped-costs mechanism instead.',
+    why: 'Uncapped "100% to charity" is banned: the direct costs charged to Purpose Fees are capped and published to the invoice, and any cost support is listed by name (MARKETING §3 as amended by D29, 2026-09-05). State that mechanism instead.',
   },
   {
     re: /\bno CLA\b/i,
