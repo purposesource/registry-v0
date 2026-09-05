@@ -96,8 +96,8 @@
           "enum": ["pass", "project", "portfolio", "donation", "waiver"]
         },
         "hold_status": {
-          "description": "The M+1 allocation window (COM-023, ENG-025, as read by ops decision D31): a state of the allocation data, never of money — the fee money is swept to the named intermediary within 30 days of each rail payout, and the earmark instruction follows at month lock. Intake is `held` (this file's name for the state the published ledger contract calls `open-M+1`) until the window on its settlement month has fully elapsed, then `released`. `not-applicable` for zero-amount narrative rows.",
-          "enum": ["held", "released", "not-applicable"]
+          "description": "The M+1 allocation window (COM-023, ENG-025, as read by ops decision D31): a state of the allocation data, never of money — the fee money is swept to the named intermediary within 30 days of each rail payout, and the earmark instruction follows at month lock. Intake is `open-M+1` (the same name the published ledger contracts `ledger-row.v1` / `ledger-export.v1` use) until the window on its settlement month has fully elapsed, then `released`. `not-applicable` for zero-amount narrative rows.",
+          "enum": ["open-M+1", "released", "not-applicable"]
         },
         "payer_name": {
           "description": "Opted-in payer name, or the literal string `unnamed` (VS-36). Naming is opt-in; the default is `unnamed` and there is no code path that publishes a payer who did not opt in.",

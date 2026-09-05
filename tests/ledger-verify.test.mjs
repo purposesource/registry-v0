@@ -209,7 +209,7 @@ test('appending a row at the END passes the baseline guard', (t) => {
     amount_minor: 120000,
     currency: 'CHF',
     lane: 'project',
-    hold_status: 'held',
+    hold_status: 'open-M+1',
     payer_name: 'unnamed',
     external_key: 'fixture-txn-0009',
     emitting_job: 'operator:record-purchases',

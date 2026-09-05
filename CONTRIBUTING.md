@@ -100,7 +100,7 @@ cat > /tmp/row.json <<'JSON'
   "amount_minor": 250000,
   "currency": "CHF",
   "lane": "project",
-  "hold_status": "held",
+  "hold_status": "open-M+1",
   "payer_name": "unnamed",
   "external_key": "<Paddle transaction id>",
   "emitting_job": "operator:record-purchases",
