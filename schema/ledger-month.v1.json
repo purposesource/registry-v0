@@ -58,7 +58,7 @@
           "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"
         },
         "row_type": {
-          "description": "The v0 row-type whitelist. FS07-100 restricts the v0 ledger to intake types — `pool-in`, `refund-out`, `chargeback-out`, `topup-*`, `month-note` — and FS07-041's intake list adds `chargeback-reverse-in`; `annotation` is included because VS-36 requires the annotate-never-restate correction path to be expressible at v0 (FS07-042). NO ALLOCATION ROW TYPE EXISTS BEFORE P-M3: `levy`, `commons-alloc`, `directed-alloc`, `directed-to-commons`, `repo-pool`, `category-route`, `category-agg`, `rollforward-*`, `disburse`, `month-lock` and `adjustment` are all absent by design, and ledger-verify.mjs rejects them with a named error rather than a generic enum miss.",
+          "description": "The v0 row-type whitelist. FS07-100 restricts the v0 ledger to intake types — `pool-in`, `refund-out`, `chargeback-out`, `topup-*`, `month-note` — and FS07-041's intake list adds `chargeback-reverse-in`; `annotation` is included because VS-36 requires the annotate-never-restate correction path to be expressible at v0 (FS07-042). NO ALLOCATION ROW TYPE EXISTS BEFORE P-M3: `charged-to-fees`, `commons-alloc`, `directed-alloc`, `directed-to-commons`, `repo-pool`, `category-route`, `category-agg`, `rollforward-*`, `disburse`, `month-lock` and `adjustment` are all absent by design, and ledger-verify.mjs rejects them with a named error rather than a generic enum miss.",
           "enum": [
             "pool-in",
             "topup-multiplier-in",
@@ -96,7 +96,7 @@
           "enum": ["pass", "project", "portfolio", "donation", "waiver"]
         },
         "hold_status": {
-          "description": "The M+1 chargeback hold (COM-023, ENG-025): intake is `held` until the hold on its settlement month has fully elapsed, then `released`. `not-applicable` for zero-amount narrative rows.",
+          "description": "The M+1 allocation window (COM-023, ENG-025, as read by ops decision D31): a state of the allocation data, never of money — the fee money is swept to the named intermediary within 30 days of each rail payout, and the earmark instruction follows at month lock. Intake is `held` (this file's name for the state the published ledger contract calls `open-M+1`) until the window on its settlement month has fully elapsed, then `released`. `not-applicable` for zero-amount narrative rows.",
           "enum": ["held", "released", "not-applicable"]
         },
         "payer_name": {

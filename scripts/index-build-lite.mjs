@@ -338,7 +338,7 @@ for (const m of months) {
     month: m.month,
     currency: cfg.stats.reportingCurrency,
     // No `policy` block and no allocation `totals`: at v0 there is no allocator, so
-    // levy/commons/directed figures do not exist. FS07-100 — the export shape is the
+    // charged-to-fees/commons/directed figures do not exist. FS07-100 — the export shape is the
     // FS-07 §6.2 shape minus allocation totals, so public transparency pages have one
     // format forever.
     totals: { rowCount: totals.rows, netIntakeMinor: totals.netMinor },
@@ -347,7 +347,7 @@ for (const m of months) {
     methodology: [
       'Append-only: a committed row is never edited or deleted. Corrections are new rows (FS07-042).',
       'Row hashes chain globally in `seq` order: row_hash = SHA-256(prev_hash || JCS(row minus its two hash fields)), RFC 8785 canonical JSON.',
-      'No allocation, levy, or disbursement row exists before the platform computes one; this table records intake only.',
+      'No allocation, charged-to-fees, or disbursement row exists before the platform computes one; this table records intake only.',
     ],
   });
 

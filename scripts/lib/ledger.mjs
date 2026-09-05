@@ -24,7 +24,7 @@ export const LEDGER_DIR = join(ROOT, 'ledger');
  * it means someone tried to publish an allocation the platform has not computed.
  */
 export const ALLOCATION_ROW_TYPES = [
-  'levy',
+  'charged-to-fees',
   'commons-alloc',
   'directed-alloc',
   'directed-to-commons',
