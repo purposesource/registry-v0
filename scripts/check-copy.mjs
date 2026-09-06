@@ -63,7 +63,7 @@ const PATTERNS = [
   },
   {
     re: /every (?:franc|dollar|euro) (?:traceable|visible)/i,
-    why: 'Never utter: the bank and intermediary legs cannot be publicly proven end to end. The canonical form is "every recorded allocation and disbursement is independently reconcilable".',
+    why: 'Never utter: the bank legs to the listed recipients cannot be publicly proven end to end (D33: no intermediary). The canonical form is "every recorded allocation and disbursement is independently reconcilable".',
   },
   {
     // "100% to charity", "100% of profits go to charity", "100 % of profit goes to charity":
