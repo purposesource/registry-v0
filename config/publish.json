@@ -79,9 +79,14 @@
     "_comment": [
       "FS-07 §5.2: one global append-ordered hash chain, genesis prev_hash = 64 zeros.",
       "`monthCloseDayOfMonth` + `monthCloseOffsetMonths` encode VS-36's month-immutability",
-      "rule: month M is CLOSED from day 3 of month M+2, which is when FS07-050's allocator",
-      "would lock it (the M+1 chargeback hold having fully elapsed). A closed month file",
-      "may not change at all — see scripts/ledger-verify.mjs."
+      "rule and nothing else: month M's file is CLOSED from day 3 of month M+2 and may not",
+      "change at all — see scripts/ledger-verify.mjs. This window is a file-immutability",
+      "rule, never the allocation rule: since ops decision D33 item 4 (2026-09-06) a payout",
+      "month's allocation is locked no later than the twentieth day after that month's last",
+      "payout and each listed recipient's share is transferred on or before the thirtieth",
+      "(lock before sweep); there is no chargeback hold. The two constants are unchanged.",
+      "Superseded wording: \"which is when FS07-050's allocator would lock it (the M+1",
+      "chargeback hold having fully elapsed)\"."
     ],
     "genesisHash": "0000000000000000000000000000000000000000000000000000000000000000",
     "monthCloseOffsetMonths": 2,
