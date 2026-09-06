@@ -25,6 +25,10 @@ export const LEDGER_DIR = join(ROOT, 'ledger');
  */
 export const ALLOCATION_ROW_TYPES = [
   'charged-to-fees',
+  // The two capped lines of ops decision D34 (2026-09-06): the operations reserve's
+  // retention and the steward hardship pay. Allocator rows like the rest — refused by name.
+  'reserve-retention',
+  'hardship-pay',
   'commons-alloc',
   'directed-alloc',
   'directed-to-commons',
@@ -189,8 +193,11 @@ export function verifyChain(months, cfg, failures) {
     if (ALLOCATION_ROW_TYPES.includes(row.row_type)) {
       failures.add(
         at,
-        `row_type "${row.row_type}" is an ALLOCATION row. No allocation row exists before P-M3 (FS07-100): at v0 there is no allocator, so an allocation figure here would be an unbacked claim. The v0 whitelist is intake plus month-note/annotation.`
+        `row_type "${row.row_type}" is an ALLOCATION row. No allocation row exists before P-M3 (FS07-100): at v0 there is no allocator, so an allocation figure — a charged invoice, a reserve retention, a hardship payment or a transfer to a listed recipient — here would be an unbacked claim. The v0 whitelist is intake plus month-note/annotation.`
       );
+    }
+    if (typeof row.recipient_id === 'string' && row.row_type !== 'disburse') {
+      failures.add(at, 'recipient_id belongs to a `disburse` row only — the listed recipient a transfer went to (D33 item 1).');
     }
     if (ZERO_AMOUNT_ROW_TYPES.includes(row.row_type) && row.amount_minor !== 0) {
       failures.add(at, `${row.row_type} rows carry no money; amount_minor must be 0, got ${row.amount_minor}.`);
@@ -249,9 +256,12 @@ export function monthDigest(monthRows) {
  * the month closes").
  *
  * Close = day `monthCloseDayOfMonth` of month M + `monthCloseOffsetMonths`, i.e. day 3 of
- * M+2 with the shipped configuration. That is exactly when FS07-050's allocator would
- * lock the month, the M+1 chargeback hold having fully elapsed — so v0's CI-enforced
- * immutability begins at the same instant P-M3's database-enforced immutability would.
+ * M+2 with the shipped configuration — a conservative v0 immutability clock. Since ops
+ * decision D33 item 4 (2026-09-06) the allocator locks a month under the lock-before-sweep
+ * rule, no later than the twentieth day after the month's last rail payout; that instant
+ * is never later than this clock for a rail paying out within the following month, so v0's
+ * CI-enforced immutability never begins after P-M3's database-enforced immutability would.
+ * The configured day is a ceiling on the close, not the rule that decides it.
  */
 export function monthCloseDate(month, cfg) {
   const [y, m] = month.split('-').map(Number);

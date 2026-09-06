@@ -58,7 +58,7 @@
           "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"
         },
         "row_type": {
-          "description": "The v0 row-type whitelist. FS07-100 restricts the v0 ledger to intake types — `pool-in`, `refund-out`, `chargeback-out`, `topup-*`, `month-note` — and FS07-041's intake list adds `chargeback-reverse-in`; `annotation` is included because VS-36 requires the annotate-never-restate correction path to be expressible at v0 (FS07-042). NO ALLOCATION ROW TYPE EXISTS BEFORE P-M3: `charged-to-fees`, `commons-alloc`, `directed-alloc`, `directed-to-commons`, `repo-pool`, `category-route`, `category-agg`, `rollforward-*`, `disburse`, `month-lock` and `adjustment` are all absent by design, and ledger-verify.mjs rejects them with a named error rather than a generic enum miss.",
+          "description": "The v0 row-type whitelist. FS07-100 restricts the v0 ledger to intake types — `pool-in`, `refund-out`, `chargeback-out`, `topup-*`, `month-note` — and FS07-041's intake list adds `chargeback-reverse-in`; `annotation` is included because VS-36 requires the annotate-never-restate correction path to be expressible at v0 (FS07-042). NO ALLOCATION ROW TYPE EXISTS BEFORE P-M3: `charged-to-fees`, `reserve-retention` and `hardship-pay` (the two capped lines of ops decision D34, 2026-09-06 — the operations reserve's retention and the steward hardship pay, each its own line even at zero), `commons-alloc`, `directed-alloc`, `directed-to-commons`, `repo-pool`, `category-route`, `category-agg`, `rollforward-*`, `disburse` (one transfer per listed recipient, D33 item 1), `month-lock` and `adjustment` are all absent by design, and ledger-verify.mjs rejects them with a named error rather than a generic enum miss. The four outgoing lines of D34 item 5 arrive with the allocator; until then this table records intake only.",
           "enum": [
             "pool-in",
             "topup-multiplier-in",
@@ -96,7 +96,7 @@
           "enum": ["pass", "project", "portfolio", "donation", "waiver"]
         },
         "hold_status": {
-          "description": "The M+1 allocation window (COM-023, ENG-025, as read by ops decision D31): a state of the allocation data, never of money — the fee money is swept to the named intermediary within 30 days of each rail payout, and the earmark instruction follows at month lock. Intake is `open-M+1` (the same name the published ledger contracts `ledger-row.v1` / `ledger-export.v1` use) until the window on its settlement month has fully elapsed, then `released`. `not-applicable` for zero-amount narrative rows.",
+          "description": "The allocation state of an intake row (COM-023, ENG-025, as amended by ops decisions D31 and D33): a state of the allocation data, never of money. Since D33 item 4 (2026-09-06) the rule is LOCK BEFORE SWEEP — a month's allocation is computed at the lock, no later than the twentieth day after the month's last rail payout, and each listed recipient's share is transferred directly from the fees account on or before the thirtieth day; there is no intermediary and no earmark instruction. Intake is `open-M+1` (the same token the published ledger contracts `ledger-row.v1` / `ledger-export.v1` use; it keeps its D31 name for contract stability, a published value is never renamed) until its settlement month locks, then `released`. `not-applicable` for zero-amount narrative rows.",
           "enum": ["open-M+1", "released", "not-applicable"]
         },
         "payer_name": {
@@ -112,9 +112,14 @@
           "pattern": "^(R_[A-Za-z0-9_-]{6,118}|MDEwOlJlcG9zaXRvcnk[A-Za-z0-9+/=]{1,96})$"
         },
         "category_fund_id": {
-          "description": "Donor-designated fund for a `topup-donation-in` row (COM-064) — from the curated menu only.",
+          "description": "Donor-designated category for a `topup-donation-in` row (COM-064) — from the curated menu only. Since ops decision D33 item 1 (2026-09-06) a category is the basket of the listed recipients in it, nothing else.",
           "type": "string",
           "pattern": "^cat-[a-z0-9-]{1,40}$"
+        },
+        "recipient_id": {
+          "description": "The listed recipient a `disburse` row transferred to (ops decision D33 item 1; the Recipient List is the published, versioned annex to the statutes). Platform-minted ULID, `rcp_` prefix, lowercase Crockford base32 — the same field `ledger-row.v1` publishes as `recipientId`. Reserved here so the P-M3 import needs no widening; no v0 row carries it, because no `disburse` row exists before the allocator.",
+          "type": "string",
+          "pattern": "^rcp_[0-9abcdefghjkmnpqrstvwxyz]{26}$"
         },
         "schedule_version": {
           "description": "Schedule version in force for this money-bearing row (ENG-084).",

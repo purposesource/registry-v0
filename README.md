@@ -37,7 +37,7 @@ tests/          the gate tests and their fixtures
 | Signing keys, the certificate signing script, JWKS | Signing is an operator act against Key Vault. **No key, no secret, and no credential exists anywhere in this repository**, and CI needs none | operator tooling / `infra` |
 | `/certs/{id}.json` and `/entitlements/{co}.jws` | Produced by the operator signing script at issuance time, not by this build | operator tooling |
 | Waivers | Waiver issuance is dashboard-only, by a claimed repository administrator, from the next phase. **The registry schema forbids a waiver field**, so a waiver cannot enter by pull request. The published `/waivers/*` artifacts render the honest empty state | dashboard (later) |
-| Any allocation, charged-to-fees or disbursement figure | There is no allocator at v0. Those row types are refused **by name**, because publishing one would publish a figure that nothing computed | later |
+| Any allocation figure — charged to fees, reserve retention, hardship pay, or a transfer to a listed recipient | There is no allocator at v0. Those row types are refused **by name**, because publishing one would publish a figure that nothing computed (D33/D34, 2026-09-06: the four outgoing lines arrive with the allocator) | later |
 | Contributor counts, impact figures, CHF totals | No contributor claim flow exists yet, and no money has been disbursed. The counters publish `null`, not `0` | later |
 
 ## How to run it

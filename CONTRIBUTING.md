@@ -123,14 +123,18 @@ Three rules with no exceptions:
    `corrects_led_id`; narrative context is a zero-amount `annotation` row. The ledger
    annotates, it never restates — including when the fact being corrected is embarrassing.
 2. **A closed month is closed.** A month becomes immutable on day 3 of the month after
-   next, which is when the chargeback hold has fully elapsed — a hold of allocation data,
-   never of money: the fee money is swept within 30 days of each rail payout (D31). A late
-   fact posts against the earliest still-open month.
+   next — the v0 immutability clock, a ceiling on the close. The rule that decides the close
+   once the allocator exists is lock before sweep (D33 item 4, 2026-09-06): the allocation is
+   computed at the lock, no later than twenty days after the month's last rail payout, and
+   each listed recipient's share is transferred directly on or before the thirtieth day. A
+   late fact posts against the earliest still-open month, forward-only; nothing is ever
+   clawed back from a recipient.
 3. **`payer_name` is `unnamed`** unless the payer explicitly opted in to being named.
 
-No allocation row exists at v0. There is no allocator yet, so `charged-to-fees`, `repo-pool`,
-`disburse` and their relatives are refused by name rather than by a generic enum error —
-publishing one would be publishing a figure nothing computed.
+No allocation row exists at v0. There is no allocator yet, so `charged-to-fees`,
+`reserve-retention`, `hardship-pay` (the two capped lines of D34), `repo-pool`, `disburse`
+(a transfer to a listed recipient) and their relatives are refused by name rather than by a
+generic enum error — publishing one would be publishing a figure nothing computed.
 
 ---
 

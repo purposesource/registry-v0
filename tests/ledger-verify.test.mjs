@@ -155,6 +155,38 @@ test('an ALLOCATION row type is refused by name — none exists before P-M3 (FS0
   assert.match(r.stderr, /FS07-100/);
 });
 
+test('the two capped lines of D34 — reserve-retention and hardship-pay — are refused by name too', (t) => {
+  const w = ws('capped-lines');
+  t.after(() => cleanup(w));
+
+  const m = month(w, '2026-12');
+  const last = m.rows[m.rows.length - 1];
+  m.rows.push(
+    { ...last, led_id: 'led_01jd0000000000000000000010', seq: 7, row_type: 'reserve-retention', amount_minor: 0, note: 'x' },
+    { ...last, led_id: 'led_01jd0000000000000000000011', seq: 8, row_type: 'hardship-pay', amount_minor: 0, note: 'x' }
+  );
+  writeMonth(w, '2026-12', m);
+
+  const r = verify(w);
+  assert.equal(r.code, 1);
+  assert.match(r.stderr, /"reserve-retention" is an ALLOCATION row/);
+  assert.match(r.stderr, /"hardship-pay" is an ALLOCATION row/);
+  assert.match(r.stderr, /reserve retention, a hardship payment or a transfer to a listed recipient/);
+});
+
+test('recipient_id is refused on anything but a disburse row (D33 item 1)', (t) => {
+  const w = ws('recipient');
+  t.after(() => cleanup(w));
+
+  const m = month(w, '2026-12');
+  m.rows[0] = { ...m.rows[0], recipient_id: 'rcp_01jd0000000000000000000001' };
+  writeMonth(w, '2026-12', m);
+
+  const r = verify(w);
+  assert.equal(r.code, 1);
+  assert.match(r.stderr, /recipient_id belongs to a `disburse` row only/);
+});
+
 test('the amount-sign law is enforced per row type', (t) => {
   const w = ws('signs');
   t.after(() => cleanup(w));

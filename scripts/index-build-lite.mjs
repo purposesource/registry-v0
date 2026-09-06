@@ -337,17 +337,18 @@ for (const m of months) {
     generatedAt: now,
     month: m.month,
     currency: cfg.stats.reportingCurrency,
-    // No `policy` block and no allocation `totals`: at v0 there is no allocator, so
-    // charged-to-fees/commons/directed figures do not exist. FS07-100 — the export shape is the
-    // FS-07 §6.2 shape minus allocation totals, so public transparency pages have one
-    // format forever.
+    // No `policy` block and no allocation `totals`: at v0 there is no allocator, so the
+    // charged-to-fees / reserve-retention / hardship-pay / disbursed figures (the four
+    // outgoing lines of D34 item 5) do not exist and are not published as zeros — a zero would
+    // read as a claim that the rule ran. FS07-100 — the export shape is the FS-07 §6.2 shape
+    // minus allocation totals, so public transparency pages have one format forever.
     totals: { rowCount: totals.rows, netIntakeMinor: totals.netMinor },
     rows,
     monthDigest: digest,
     methodology: [
       'Append-only: a committed row is never edited or deleted. Corrections are new rows (FS07-042).',
       'Row hashes chain globally in `seq` order: row_hash = SHA-256(prev_hash || JCS(row minus its two hash fields)), RFC 8785 canonical JSON.',
-      'No allocation, charged-to-fees, or disbursement row exists before the platform computes one; this table records intake only.',
+      'No allocation row — charged-to-fees, reserve-retention, hardship-pay, or a disburse transfer to a listed recipient — exists before the platform computes one; this table records intake only. When the allocator arrives, a month locks under the lock-before-sweep rule (no later than twenty days after its last rail payout) and each listed recipient is transferred its share directly on or before the thirtieth day (D33 item 4).',
     ],
   });
 
@@ -376,8 +377,9 @@ emit('ledger/chain.json', {
   rowCount: allRows.length,
   months: monthSummaries,
   // FS07-040 publishes the chain head plus every month-LOCK row. There are no locks at
-  // v0 (locking is the allocator's act, FS07-050), so this artifact carries the head plus
-  // per-month digests, which is what VS-37 specifies for v0.
+  // v0 (locking is the allocator's act, FS07-050; under D33 item 4 it happens before the
+  // sweep, no later than twenty days after the month's last rail payout), so this artifact
+  // carries the head plus per-month digests, which is what VS-37 specifies for v0.
   locks: [],
   notes: [
     'Month locks begin at P-M3 with `jobs.allocator`; the `locks` array is empty by design at v0, not by omission.',
