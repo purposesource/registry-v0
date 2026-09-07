@@ -34,10 +34,10 @@ license:
 weight_class: standard
 inbound_family: permissive
 
-# Optional. Slugs come from the curated menu in config/category-funds.json only (D16);
+# Optional. Slugs come from the published menu in config/category-funds.json only (D16);
 # absent means the steward default applies (FS02-050 tier 3).
 impact_category_defaults:
-  - climate
+  - environment
   - education
 
 contacts:

@@ -11,6 +11,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import Ajv from 'ajv';
+import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { load as yamlLoad } from 'js-yaml';
 
@@ -124,12 +125,19 @@ export function config() {
   return configCache;
 }
 
-let fundsCache = null;
+let menuCache = null;
 
-/** config/category-funds.json — the curated fund menu (ENG-033). */
-export function categoryFunds() {
-  if (!fundsCache) fundsCache = readJsonFile(join(ROOT, 'config', 'category-funds.json'));
-  return fundsCache;
+/**
+ * config/category-funds.json — the published category menu (ENG-033, D16, D33 item 1).
+ *
+ * A VENDORED file: it is a byte-identical copy of the menu published in the contract
+ * repository, and CI checks the bytes against that published copy on every run. Never
+ * edit it here — an edit that improves it locally is a fork of the one vocabulary that
+ * decides where money goes.
+ */
+export function categoryMenu() {
+  if (!menuCache) menuCache = readJsonFile(join(ROOT, 'config', 'category-funds.json'));
+  return menuCache;
 }
 
 // ------------------------------------------------------------------------- timestamps
@@ -191,34 +199,54 @@ export function assertIsoSeconds(value, where, failures) {
 
 // -------------------------------------------------------------------------- validation
 
-let ajvCache = null;
+const DIALECT_2020 = 'https://json-schema.org/draft/2020-12/schema';
 
-function ajv() {
-  if (!ajvCache) {
-    ajvCache = new Ajv({
+const ajvCache = new Map();
+
+/**
+ * A validator for the dialect the schema itself declares.
+ *
+ * TWO DIALECTS COEXIST HERE, and not by accident. This repository's own artifact schemas
+ * (`ct-segment`, `ledger-month`) are draft-07, which is what every OSPO scanner and CI
+ * linter already speaks. `registry-v0-record.v1.json` is 2020-12 because it is not this
+ * repository's schema at all: it is a byte-identical vendored copy of the published
+ * contract, and the contract set is 2020-12 throughout. Ajv's two entry points are
+ * separate classes that each know one meta-schema, so the choice is made from the file's
+ * own `$schema` rather than guessed — a schema that declares a dialect its validator does
+ * not know fails loudly at compile time, which is the outcome we want.
+ */
+function ajv(dialect) {
+  if (!ajvCache.has(dialect)) {
+    const Ctor = dialect === DIALECT_2020 ? Ajv2020 : Ajv;
+    const instance = new Ctor({
       allErrors: true,
       // Report every problem in a file, not just the first — same reason as Failures.
       strict: true,
       // `strictTypes: false`: several fields are legitimately `["string","null"]` with a
       // `pattern` that applies only to the string branch (CT `prevSegmentSha256`, `ref`).
       // Ajv's strictTypes calls that a union-with-constraint and warns; the schema is
-      // valid draft-07 and the behaviour is the intended one.
+      // valid and the behaviour is the intended one.
       strictTypes: false,
-      // `strictRequired: false`: the registry schema states its bans as
+      // `strictRequired: false`: the record schema states its bans as
       // `not: { required: ["waivers"] }`, which is precisely the point — `waivers` is a
       // property that must NOT be defined. Ajv's strictRequired flags a `required` naming
       // an undeclared property as a likely typo, which it is everywhere except here.
       strictRequired: false,
     });
-    addFormats(ajvCache, ['date', 'date-time', 'uri']);
+    addFormats(instance, ['date', 'date-time', 'uri']);
+    // `x-psn` is the provenance block every published contract carries (spec version,
+    // artifact path, the clauses it implements). It is an annotation and never affects
+    // validation; registering it is what lets strict mode stay on for everything else.
+    instance.addKeyword({ keyword: 'x-psn', metaSchema: { type: 'object' } });
+    ajvCache.set(dialect, instance);
   }
-  return ajvCache;
+  return ajvCache.get(dialect);
 }
 
 /** Compiles a schema from schema/ and returns a `(data) => string[]` error reporter. */
 export function schemaValidator(fileName) {
   const schema = readJsonFile(join(ROOT, 'schema', fileName));
-  const validate = ajv().compile(schema);
+  const validate = ajv(schema.$schema).compile(schema);
   return (data) => {
     if (validate(data)) return [];
     return (validate.errors || []).map((e) => {

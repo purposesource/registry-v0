@@ -49,6 +49,52 @@ jobs:
       - name: Install
         run: npm ci
 
+      # -------------------------------------------------- vendored contracts, byte-exact
+      #
+      # Two files here are NOT this repository's own: `schema/registry-v0-record.v1.json`
+      # is the published record contract, and `config/category-funds.json` is the
+      # published category menu. Both are vendored so this repository validates with
+      # nothing but its own checkout — an OSPO that clones it needs no second download —
+      # and vendoring without an equality check is just a fork with good intentions. So:
+      # vendor, then assert equality, which is the pattern the config file's own comment
+      # promises a reader.
+      #
+      # No token. The contract repository is public, so `actions/checkout` reads it with
+      # the job's own read-only GITHUB_TOKEN and the workflow's `permissions:` block
+      # stands unchanged. `main` is deliberately the ref: this repository must be level
+      # with what is published right now, not with a tag someone forgot to move.
+      - name: Check out the published contract set
+        uses: actions/checkout@v4
+        with:
+          repository: purposesource/spec
+          ref: main
+          path: .vendor-check/spec
+          persist-credentials: false
+
+      - name: Vendored files are byte-identical to the published contracts
+        run: |
+          set -eu
+          fail=0
+          # local path : published path
+          for pair in \
+            "schema/registry-v0-record.v1.json:schemas/registry-v0-record.v1.json" \
+            "config/category-funds.json:examples/category-menu.v1.example.json"
+          do
+            here="${pair%%:*}"
+            there=".vendor-check/spec/${pair#*:}"
+            if [ ! -f "$there" ]; then
+              echo "::error file=$here::the published copy $there does not exist. Either the contract set moved the file, or this repository is vendoring something that was never published."
+              fail=1
+            elif ! cmp -s "$here" "$there"; then
+              echo "::error file=$here::differs from the published copy (${pair#*:}). This file is VENDORED: never edit it here. Change the published contract, then copy it back byte for byte."
+              diff -u "$there" "$here" || true
+              fail=1
+            else
+              echo "ok  $here == ${pair#*:}"
+            fi
+          done
+          exit "$fail"
+
       # ---------------------------------------------------------------- copy law
       - name: Copy law (banned terms)
         # Narrow by design: a grep cannot tell a permitted MENTION of open source from a

@@ -1,0 +1,220 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://purposesource.org/spec/schemas/registry-v0-record.v1.json",
+  "title": "registry-v0 record — one curated YAML file per registered repository",
+  "description": "The P-M2-only, PR-curated registry source of truth: one file `registry/{owner}--{name}.yml` in the public curated registry repository (FS-02 §7 FS02-060). THIS is the schema that repository validates against — it holds a byte-identical vendored copy and its CI fails on any byte difference, so there is one record contract rather than two that agree by habit. The filename is derived from `owner` and `name`, lowercased and joined by `--`, because an opaque `R_kgDO…` filename makes a curation pull request unreviewable at a glance; `node_id` remains the primary key in every artifact and every reference (FS-02 §7's `repos/{node_id}.yml` is the chapter's earlier form). Consumed by the index-build-lite job that renders the published artifacts (VS-04). Three hard constraints carry legal weight: (1) there is NO `waivers` field and there never will be — waivers are issued only by a claimed admin from the platform dashboard (D14), so no waiver can enter the registry by pull request; (2) the YAML file is a CACHE of display facts, while the repository's own committed LICENSE file is the truth about adoption (D13); (3) this whole repository is data class P0-public (FS-00 §6.9), so the only person-identifying data a record may hold is a GitHub login — the `contacts` patterns make an e-mail address structurally unrepresentable (D15). Frozen and archived at P-M3 with a pointer to the export endpoints (FS-00 §2).",
+  "x-psn": {
+    "specVersion": "1.1.0",
+    "phase": "P-M2 only",
+    "artifactPath": "(curated registry repository) registry/{owner}--{name}.yml",
+    "authoritative": false,
+    "producer": "operator-merged pull request (curated registry repository)",
+    "consumers": ["the curated registry repository's validation CI (FS02-061)", "index-build-lite (FS02-062, VS-04)"],
+    "fsRefs": ["FS-02 §7 (FS02-060…FS02-064)", "FS-02 §3", "FS-02 §4", "FS-00 §6.1", "FS-00 §6.9", "D13", "D14", "D15", "D16", "D33 item 1"],
+    "vsRefs": ["VS-03", "VS-04"],
+    "changelog": "CHANGELOG.md#registry-v0-recordv1json"
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "node_id", "owner", "name", "default_branch", "state", "license", "weight_class", "inbound_family", "contacts"],
+  "properties": {
+    "schema": {
+      "const": "registry-v0/1",
+      "description": "Record schema tag. A value this validator does not know must fail the pull request — a broken registry never half-publishes (FS02-063). Unlike `PURPOSE.yml`, which is optional overrides and degrades to defaults (D23), a registry record is the published cache of an adoption."
+    },
+    "example": {
+      "const": true,
+      "description": "Marks a seeded demonstration record. `true` records exist so the tooling has data to run against; index-build-lite EXCLUDES them from every published artifact and CI fails if one leaks into the output. A real record omits the key entirely."
+    },
+    "node_id": {
+      "$ref": "#/$defs/githubNodeId",
+      "description": "GitHub GraphQL node_id — the primary key everywhere (FS-00 §6.1, GH-003); `owner`/`name` are display cache only and appear in no key. Existence cannot be validated at v0 (P-M2 §4.2 edge case 4)."
+    },
+    "owner": {
+      "$ref": "#/$defs/githubLogin",
+      "description": "Owner login. DISPLAY CACHE ONLY — refreshed by the operator on a rename; never a key, never money-bearing (FS02-017)."
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^(?!\\.{1,2}$)[A-Za-z0-9_][A-Za-z0-9._-]{0,99}$",
+      "description": "Repository name. Display cache only. Also the shard key for the published registry index (first character, FS02-062). Leading dots and the reserved names `.`/`..` are excluded because they would produce an unusable filename."
+    },
+    "default_branch": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^[^\\s~^:?*\\[\\\\]+$",
+      "description": "Default branch at the time of curation (FS02-010). Used only to build human links; a stale value never affects registration."
+    },
+    "state": {
+      "$ref": "#/$defs/repoState",
+      "description": "The FS-02 §3 state enum verbatim. `detected` repositories appear in aggregate counts only — no listing, no repo record, no badge (GH-014). `powers_suspended` and `allocation_frozen` are the two orthogonal private flags of FS02-020 and are deliberately absent from this contract: they are platform state, never registry data."
+    },
+    "state_note": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "Optional short public reason CLASS shown on the neutral tombstone page for `delisted`/`quit` (WEB-075). A reason class, not a narrative, and never a person's name. Required in practice for those two states, which a validator expresses better than a schema."
+    },
+    "license": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "published", "adopted", "text_sha256"],
+      "description": "The adopted licence version and the evidence for it. The repository's own LICENSE file is the source of truth for adoption (GH-002, LEG-027 as amended, D13); these fields are the cache of what the operator verified.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^PurposeSource-[0-9]+\\.[0-9]+$",
+          "description": "Identifier of the adopted licence version. `PurposeSource-1.0` is the working form used by FS02-030; the final canonical token string is URS §21 OPEN-20. Must agree with `version`, which a validator cross-checks."
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+$",
+          "description": "Licence version carried by the repository (GH-022)."
+        },
+        "published": {
+          "type": "string",
+          "format": "date",
+          "description": "Publication date of THIS licence version — the anchor for the fixed four-year Apache-2.0 conversion clock (D9, FS02-010 `license_pub_date`). The conversion date published on the repo record is derived from it, never stored."
+        },
+        "adopted": {
+          "type": "string",
+          "format": "date",
+          "description": "Date the LICENSE commit landed on the default branch (FS02-010 `adoption_date`). Adoption completes on that merge and nothing else (VIS-01), and cannot precede `published`."
+        },
+        "text_sha256": {
+          "$ref": "#/$defs/sha256",
+          "description": "SHA-256 of the committed licence text, as verified against the published canonical text (GH-015). A modified text is not an adoption (D10)."
+        }
+      }
+    },
+    "weight_class": {
+      "enum": ["standard", "major"],
+      "description": "Pricing weight class (D11). Lowercase is the frozen form (FS02-010 CHECK constraint); VS-03's `{Standard, Major}` is display capitalisation. The multiplier itself is Schedule-owned and never appears in the registry (FS02-070: admins pick a class, they never enter numbers). Set through the dashboard menu, never by the manifest (APP-029); at v0 by operator-merged pull request."
+    },
+    "weight_class_approval_ref": {
+      "type": "string",
+      "format": "uri",
+      "maxLength": 300,
+      "description": "Required when `weight_class` is `major`: the public reference (pull request or issue URL) recording the steward approval, so the merge is auditable. `standard -> major` takes effect only on that approval (FS02-071) and merging the record IS the approval being recorded; `major -> standard` is immediate and needs none. The conditional is enforced by the validator, which can express it cleanly."
+    },
+    "inbound_family": {
+      "enum": ["permissive", "copyleft", "unknown", "none"],
+      "description": "Inbound-licence family of the code the project takes in (FS02-010 `inbound_family`). Drives the FS-09/WEB-034 adoption gate: `permissive` -> notice-preservation instructions; `copyleft` -> declined, manual consent path; `unknown` -> declined to manual review; `none` -> no inbound third-party code. Escrow candidates with copyleft inbound complete the consent path manually or do not qualify (P-M2 §5 item 12)."
+    },
+    "impact_category_defaults": {
+      "type": "array",
+      "description": "Optional project-level default routing: slugs from the published category menu ONLY (D16, ENG-033 — free text is structurally impossible). Absent means the steward default applies (FS02-050 tier 3). The seven slugs are the categories of the statutes' Art. 7 (D33 item 1); `$defs.categorySlug` is a copy of the enum published in `category-menu.v1.json`, carried here because a published schema must validate on its own download, and asserted identical by the publishing repository's gate.",
+      "minItems": 1,
+      "maxItems": 7,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/categorySlug" }
+    },
+    "contacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["admin_logins"],
+      "description": "Curation contacts. LOGINS AND URLs ONLY — no e-mail addresses, no personal names, no phone numbers. This whole repository is data class P0-public (FS-00 §6.9) and person-identifying data beyond a GitHub login plus node_id is out of bounds (D15); the field patterns below make an e-mail address structurally unrepresentable, and the validator additionally scans every string in every record for `@`-shaped text.",
+      "properties": {
+        "admin_logins": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/githubLogin" },
+          "description": "GitHub logins of the repository administrators the operator corresponded with during curation. Display cache like `owner`/`name`: at P-M3 the claim flow (FS-09) becomes the authority and these are informational."
+        },
+        "public_contact_url": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 300,
+          "description": "Optional public contact page or discussion URL for the project."
+        }
+      }
+    },
+    "curation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "recorded_at"],
+      "description": "Provenance of this record: how it reached the registry and when. Discovery is a safety net, never the primary channel (FS-02 §4) — `self-registration` is the expected value.",
+      "properties": {
+        "source": {
+          "enum": ["self-registration", "discovery", "operator"],
+          "description": "The channel the record arrived through."
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "UTC ISO-8601 instant the operator recorded this record (FS-00 §6.1: UTC ISO-8601 everywhere). Cannot precede `license.adopted` — the registry records an adoption that already happened (D13)."
+        },
+        "review_ref": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 300,
+          "description": "Optional public reference (pull request or issue URL) for the curation decision."
+        }
+      }
+    },
+    "repo_url": { "type": "string", "format": "uri", "description": "Convenience display link. Derivable from owner/name; recorded so a renamed repository still resolves for a human reviewer." },
+    "canonical_of": {
+      "$ref": "#/$defs/githubNodeId",
+      "description": "Set on the canonical repository of a fork family (GH-008). Forks are linked, never registered."
+    },
+    "notes": { "type": "string", "maxLength": 500, "description": "Curation note for reviewers. Published as part of this public data file, never rendered on a public page." }
+  },
+  "allOf": [
+    {
+      "$comment": "WAIVERS CAN NEVER ENTER THE REGISTRY (FS02-060, D14). Waiver issuance is dashboard-only, by a claimed admin, from P-M3; at v0 the /waivers/* artifacts render the honest empty state. `additionalProperties: false` already rejects these keys, but a bare 'additional property not allowed' error teaches a contributor nothing, so the ban is also spelled out and the validator turns a hit into a named, quotable failure.",
+      "not": {
+        "anyOf": [
+          { "required": ["waivers"] },
+          { "required": ["waiver"] },
+          { "required": ["waiver_powers"] },
+          { "required": ["gratis_waivers"] }
+        ]
+      }
+    },
+    {
+      "$comment": "Nor may a record carry money, entitlements, contributor shares, or manifest parse results. Those are platform state (FS-05/FS-06/FS-07) or P-M3 surfaces; a PR-curated public YAML file is not where any of them may appear.",
+      "not": {
+        "anyOf": [
+          { "required": ["entitlements"] },
+          { "required": ["impact_shares"] },
+          { "required": ["amount_minor"] },
+          { "required": ["stats"] },
+          { "required": ["manifest"] },
+          { "required": ["powers_suspended"] },
+          { "required": ["allocation_frozen"] }
+        ]
+      }
+    }
+  ],
+  "$defs": {
+    "repoState": {
+      "enum": ["detected", "verified", "suspended", "quit", "delisted"],
+      "description": "FS-02 §3, verbatim and closed."
+    },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "Lowercase hex SHA-256." },
+    "githubLogin": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$",
+      "description": "GitHub's own login grammar: alphanumerics and single interior hyphens, at most 39 characters."
+    },
+    "githubNodeId": {
+      "type": "string",
+      "pattern": "^(R_[A-Za-z0-9_-]{6,118}|MDEwOlJlcG9zaXRvcnk[A-Za-z0-9+/=]{1,96})$",
+      "description": "A GitHub GraphQL REPOSITORY node_id, in either of the two forms that exist: the current `R_`-prefixed form and the legacy base64 form, whose decoded value begins `010:Repository`. The pattern narrows the legacy branch to that prefix; the validator additionally base64-decodes and asserts `010:Repository<number>`, which no pattern can do. That check matters because this is the FS02-095 one-node_id-one-registration key: a user or organisation node_id must not pass."
+    },
+    "categorySlug": {
+      "enum": [
+        "animal-welfare",
+        "education",
+        "environment",
+        "health",
+        "humanitarian-aid",
+        "poverty-relief",
+        "research"
+      ],
+      "description": "The seven published categories of the statutes' Art. 7 (D33 item 1). A copy of `category-menu.v1.json#/$defs/slug`, asserted identical to it by the publishing repository's gate — schemas here are self-contained, so one downloaded file validates on its own and cross-file references do not exist."
+    }
+  }
+}

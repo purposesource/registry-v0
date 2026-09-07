@@ -11,11 +11,11 @@ import test from 'node:test';
 
 import { load as yamlLoad } from 'js-yaml';
 
-import { REPO, cleanup, runScript, workspace } from './helpers.mjs';
-import { schemaValidator } from '../scripts/lib/repo.mjs';
+import { REPO, cleanup, readJson, runScript, workspace } from './helpers.mjs';
+import { categoryMenu, schemaValidator } from '../scripts/lib/repo.mjs';
 import { conversionDate, entryFileName, shardOf } from '../scripts/lib/registry.mjs';
 
-const validate = schemaValidator('registry-entry.v1.json');
+const validate = schemaValidator('registry-v0-record.v1.json');
 
 const GOOD = yamlLoad(
   readFileSync(join(REPO, 'tests', 'fixtures', 'registry-all-states', 'psn-fixture-a--alpha-tool.yml'), 'utf8')
@@ -92,11 +92,44 @@ test('inbound_family is the FS02-010 four-value enum', () => {
   assert.ok(validate(mutated({ inbound_family: 'mit' })).length > 0);
 });
 
-test('impact category defaults resolve against the curated menu only — free text impossible', () => {
-  assert.deepEqual(validate(mutated({ impact_category_defaults: ['climate', 'health'] })), []);
+test('impact category defaults resolve against the published menu only — free text impossible', () => {
+  assert.deepEqual(validate(mutated({ impact_category_defaults: ['environment', 'health'] })), []);
   assert.ok(validate(mutated({ impact_category_defaults: ['puppies'] })).length > 0);
-  assert.ok(validate(mutated({ impact_category_defaults: ['climate', 'climate'] })).length > 0, 'duplicates rejected');
+  assert.ok(validate(mutated({ impact_category_defaults: ['environment', 'environment'] })).length > 0, 'duplicates rejected');
   assert.ok(validate(mutated({ impact_category_defaults: [] })).length > 0, 'an empty list is not the same as absent');
+});
+
+test('the seven categories are exactly the menu, and a pre-decision slug is refused', () => {
+  const menu = categoryMenu().categories.map((c) => c.slug);
+  assert.equal(menu.length, 7, 'the menu holds the seven Art. 7 categories (D33 item 1)');
+  for (const slug of menu) {
+    assert.deepEqual(validate(mutated({ impact_category_defaults: [slug] })), [], `${slug} must be accepted`);
+  }
+  // The six-fund menu that predated the decision. `climate` in particular reads like a
+  // category and is not one: a record naming it would claim a destination that does not
+  // exist, so the refusal is the honesty rule in schema form.
+  for (const gone of ['climate', 'water-sanitation', 'food-security', 'digital-access']) {
+    assert.ok(validate(mutated({ impact_category_defaults: [gone] })).length > 0, `${gone} must be refused`);
+  }
+  assert.deepEqual(validate(mutated({ impact_category_defaults: menu })), [], 'all seven at once is legal');
+  assert.ok(
+    validate(mutated({ impact_category_defaults: [...menu, 'health'] })).length > 0,
+    'more entries than categories cannot be legal'
+  );
+});
+
+test('the vendored record schema is the published contract, not a local variant', () => {
+  const schema = readJson('schema', 'registry-v0-record.v1.json');
+  assert.equal(schema.$id, 'https://purposesource.org/spec/schemas/registry-v0-record.v1.json');
+  assert.equal(schema.$schema, 'https://json-schema.org/draft/2020-12/schema');
+  assert.ok(schema['x-psn'], 'the provenance block travels with the vendored file');
+  // The same seven slugs the vendored menu carries. The workflow proves both files are
+  // byte-identical to the published copies; this proves the two vendored files agree with
+  // each other, which a byte check upstream cannot say anything about.
+  assert.deepEqual(
+    [...schema.$defs.categorySlug.enum].sort(),
+    categoryMenu().categories.map((c) => c.slug).sort()
+  );
 });
 
 test('node_id must look like a GitHub repository node id', () => {
@@ -167,6 +200,23 @@ test('a malformed entry fails the gate, and the message names the file and the r
   assert.equal(r.code, 1);
   assert.match(r.stderr, /psn-fixture-a--alpha-tool\.yml/);
   assert.match(r.stderr, /weight_class/);
+});
+
+test('a pre-decision category slug fails the gate (D33 item 1)', (t) => {
+  const ws = workspace('slug', { registry: 'tests/fixtures/registry-all-states' });
+  t.after(() => cleanup(ws));
+
+  const target = join(REPO, ws, 'registry', 'psn-fixture-a--alpha-tool.yml');
+  writeFileSync(
+    target,
+    readFileSync(target, 'utf8').replace('  - health', '  - climate'),
+    'utf8'
+  );
+
+  const r = runScript('validate-registry.mjs', ['--dir', `${ws}/registry`, '--allow-no-examples']);
+  assert.equal(r.code, 1);
+  assert.match(r.stderr, /psn-fixture-a--alpha-tool\.yml/);
+  assert.match(r.stderr, /impact_category_defaults/);
 });
 
 test('a `waivers:` key fails the gate with the D14 reason, not an AJV path', (t) => {

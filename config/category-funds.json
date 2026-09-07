@@ -1,27 +1,38 @@
 {
   "schemaVersion": 1,
   "_comment": [
-    "The curated category-fund menu (ENG-033, D16): 5-8 funds, steward-published, never",
-    "free text. A registry entry's `impact_category_defaults` slugs resolve ONLY against",
-    "this menu; an unknown slug is a validation failure, not a warning.",
+    "THE CATEGORY MENU — the seven published public-benefit categories of the statutes,",
+    "Art. 7 (ops decision D33 item 1), confirmed at the founding assembly. This is the ONLY",
+    "category vocabulary a registry record, an artifact or a public surface may name: a",
+    "category that is not on this list would be a fabricated fact about where money goes. A",
+    "category is the basket of listed recipients assigned to it and nothing else, which is",
+    "why the word to prefer is \"category\" rather than \"fund\".",
     "",
-    "SOURCE OF TRUTH: {ORG}/spec publishes the machine-readable menu. This file is the",
-    "self-contained vendored copy this repo validates against, and",
-    "scripts/validate-registry.mjs asserts that the `slug` set here is EQUAL to the enum",
-    "in schema/registry-entry.v1.json — the two cannot drift apart silently.",
+    "PUBLISHED ONCE, VENDORED. The canonical copy is examples/category-menu.v1.example.json",
+    "in the contract repository, validated there against schemas/category-menu.v1.json and",
+    "against the slug set of schemas/registry-v0-record.v1.json. The curated registry",
+    "repository holds a BYTE-IDENTICAL vendored copy at config/category-funds.json, so that",
+    "repository validates with nothing but its own checkout, and its CI checks out the public",
+    "contract repository and fails on any byte difference. Vendor, then assert equality — one",
+    "list, never two kept level by convention.",
     "",
-    "PROVISIONAL: the fund set, its names, and its baskets are Schedule-owned and are not",
-    "settled. `provisional: true` marks that; flip it to false only when the Schedule",
-    "publishes the menu. `fund_id` follows the FS-07 `cat-*` convention used by",
-    "`category_funds.fund_id`."
+    "`category_id` keeps the `cat-*` form the ledger's `category_fund_id` column uses and must",
+    "equal `cat-{slug}` for every entry. JSON Schema cannot express that agreement, so both",
+    "repositories' gates assert it.",
+    "",
+    "PROVISIONAL. The category NAMES are published. `provisional` stays true because the",
+    "Recipient List — the named organisations inside each category — is adopted at the founding",
+    "assembly and published as the versioned annex to the statutes; no recipient is listed yet.",
+    "Flip it to false when that annex is published, and never before."
   ],
   "provisional": true,
-  "funds": [
-    { "slug": "climate", "fund_id": "cat-climate", "name": "Climate and environment" },
-    { "slug": "health", "fund_id": "cat-health", "name": "Health" },
-    { "slug": "education", "fund_id": "cat-education", "name": "Education" },
-    { "slug": "water-sanitation", "fund_id": "cat-water-sanitation", "name": "Water and sanitation" },
-    { "slug": "food-security", "fund_id": "cat-food-security", "name": "Food security" },
-    { "slug": "digital-access", "fund_id": "cat-digital-access", "name": "Digital access" }
+  "categories": [
+    { "slug": "health", "category_id": "cat-health", "name": "Health" },
+    { "slug": "education", "category_id": "cat-education", "name": "Education" },
+    { "slug": "poverty-relief", "category_id": "cat-poverty-relief", "name": "Poverty relief" },
+    { "slug": "humanitarian-aid", "category_id": "cat-humanitarian-aid", "name": "Humanitarian aid" },
+    { "slug": "environment", "category_id": "cat-environment", "name": "Environment" },
+    { "slug": "animal-welfare", "category_id": "cat-animal-welfare", "name": "Animal welfare" },
+    { "slug": "research", "category_id": "cat-research", "name": "Research" }
   ]
 }

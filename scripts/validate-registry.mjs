@@ -4,10 +4,11 @@
 //   node scripts/validate-registry.mjs [--dir registry] [--allow-no-examples]
 //
 // Runs on every PR. Validates every registry/*.yml against
-// schema/registry-entry.v1.json, then applies the checks a JSON Schema cannot express:
-// filename agreement, cross-repo uniqueness, node_id decodability, date sanity, the
-// conditional weight-class approval rule, the no-PII rule, and the schema/config
-// agreement that keeps the category-fund menu from drifting.
+// schema/registry-v0-record.v1.json — the VENDORED copy of the published record contract,
+// byte-identical to it and checked against it in CI — then applies the checks a JSON
+// Schema cannot express: filename agreement, cross-repo uniqueness, node_id decodability,
+// date sanity, the conditional weight-class approval rule, the no-PII rule, and the
+// schema/config agreement that keeps the category menu from drifting.
 //
 // FS02-063: any failure here FAILS THE BUILD. A broken registry never half-publishes,
 // because a half-published registry is a set of public claims about other people's
@@ -16,7 +17,7 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { Failures, ROOT, categoryFunds, config, parseArgs, readJsonFile, schemaValidator } from './lib/repo.mjs';
+import { Failures, ROOT, categoryMenu, config, parseArgs, readJsonFile, schemaValidator } from './lib/repo.mjs';
 import { REGISTRY_DIR, STATES, entryFileName, loadRegistry, shardOf } from './lib/registry.mjs';
 
 // `--dir` exists so the tests can validate fixture registries; `--allow-no-examples` so a
@@ -31,40 +32,48 @@ const cfg = config();
 const DIR = args.dir === 'registry' ? REGISTRY_DIR : join(ROOT, args.dir);
 const label = args.dir.split('\\').join('/');
 const failures = new Failures(`registry(${label})`);
-const validate = schemaValidator('registry-entry.v1.json');
+const SCHEMA_FILE = 'registry-v0-record.v1.json';
+const validate = schemaValidator(SCHEMA_FILE);
 
 // ---------------------------------------------------------------- schema/config parity
 //
-// The fund menu exists in two places by necessity: the JSON Schema must be self-contained
-// so a scanner can validate an entry with nothing but the schema file, and
-// config/category-funds.json must exist so the build can render fund names. Two copies
-// of one list is a drift bug waiting to happen, so assert equality rather than trusting
-// a convention.
+// The category menu exists in two places here by necessity: the JSON Schema must be
+// self-contained so a scanner can validate a record with nothing but the schema file, and
+// config/category-funds.json must exist so the build can render category names. BOTH are
+// vendored copies of the published contract set, and the workflow checks their bytes
+// against it on every run — but a byte check upstream says nothing about the two files
+// agreeing with each other, and two copies of one list is a drift bug waiting to happen.
+// So assert equality rather than trusting a convention.
 {
-  const schemaFile = readJsonFile(join(ROOT, 'schema', 'registry-entry.v1.json'));
-  const inSchema = [
-    ...schemaFile.properties.impact_category_defaults.items.enum,
-  ].sort();
-  const inConfig = categoryFunds().funds.map((f) => f.slug).sort();
+  const schemaFile = readJsonFile(join(ROOT, 'schema', SCHEMA_FILE));
+  const inSchema = [...schemaFile.$defs.categorySlug.enum].sort();
+  const menu = categoryMenu();
+  const inConfig = menu.categories.map((c) => c.slug).sort();
   if (inSchema.join(',') !== inConfig.join(',')) {
     failures.add(
       'config/category-funds.json',
-      `the fund slug set (${inConfig.join(', ')}) differs from the enum in ` +
-        `schema/registry-entry.v1.json (${inSchema.join(', ')}). Both must list the same ` +
-        'curated menu (ENG-033); update them together.'
+      `the category slug set (${inConfig.join(', ')}) differs from the enum in ` +
+        `schema/${SCHEMA_FILE} (${inSchema.join(', ')}). Both must list the same ` +
+        'published menu (ENG-033, D33 item 1); both are vendored, so fix the published copy ' +
+        'and re-vendor rather than editing either one here.'
     );
   }
-  const seenFundIds = new Set();
-  for (const f of categoryFunds().funds) {
-    if (f.fund_id !== `cat-${f.slug}`) {
-      failures.add('config/category-funds.json', `fund_id for "${f.slug}" should be "cat-${f.slug}", got "${f.fund_id}".`);
+  const seenIds = new Set();
+  for (const c of menu.categories) {
+    if (c.category_id !== `cat-${c.slug}`) {
+      failures.add('config/category-funds.json', `category_id for "${c.slug}" should be "cat-${c.slug}", got "${c.category_id}".`);
     }
-    if (seenFundIds.has(f.fund_id)) failures.add('config/category-funds.json', `duplicate fund_id ${f.fund_id}.`);
-    seenFundIds.add(f.fund_id);
+    if (seenIds.has(c.category_id)) failures.add('config/category-funds.json', `duplicate category_id ${c.category_id}.`);
+    seenIds.add(c.category_id);
   }
-  const n = categoryFunds().funds.length;
-  if (n < 5 || n > 8) {
-    failures.add('config/category-funds.json', `the curated menu holds 5 to 8 funds (ENG-033, D16); this one holds ${n}.`);
+  const n = menu.categories.length;
+  if (n !== 7) {
+    failures.add(
+      'config/category-funds.json',
+      `the published menu holds exactly the seven categories of the statutes' Art. 7 ` +
+        `(D33 item 1); this one holds ${n}. The count is constitutional, not a bound to tune ` +
+        '(ENG-033 permitted 5 to 8 before the decision).'
+    );
   }
 }
 

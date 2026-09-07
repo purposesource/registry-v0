@@ -22,7 +22,7 @@ registry/       one YAML file per participating repository, PR-curated
 ledger/         the committed monthly ledger table, append-only, hash-chained
 ct/             the committed certificate-transparency log, append-only
 schema/         the JSON Schemas those three trees are validated against
-config/         publication constants (org, hosts, badge text, the curated fund menu)
+config/         publication constants (org, hosts, badge text) and the category menu
 scripts/        the generator, the append tool, and the gates
 tests/          the gate tests and their fixtures
 ```
@@ -156,6 +156,12 @@ Two licences, on purpose:
   hold hostage, including by us.
 - **Tooling — Apache-2.0** (`LICENSE`): `scripts/`, `schema/`, `tests/`, `.github/`.
 
+Two files in those trees are **vendored, not ours**: `schema/registry-v0-record.v1.json`
+(the published record contract) and `config/category-funds.json` (the published category
+menu). They are byte-identical copies of files published in the contract repository, and
+CI checks out that repository and fails on any byte difference — so an edit here is never
+the way to change them. Change the published contract, then copy it back byte for byte.
+
 ## Open decisions a human must make
 
 These are recorded rather than silently resolved. Each one is a real fork in the road that
@@ -167,14 +173,24 @@ this scaffold had to pick a side of in order to run at all.
    be true. The scripts read their locations from arguments, and nothing hardcodes a path,
    so moving them is a configuration change — but the specification needs an amendment
    note naming one location before the artifact plane is wired to a deployment.
-2. **Registry filenames: `{owner}--{name}.yml` or `{node_id}.yml`.** The specification says
-   node_id; this repository uses `{owner}--{name}.yml` because an opaque `R_kgDO…`
-   filename makes a curation pull request unreviewable at a glance. Nothing downstream
-   depends on the filename — node_id remains the key in every artifact and every reference
-   — but the next phase's importer needs one answer.
-3. **The curated category-fund menu.** `config/category-funds.json` carries a provisional
-   six-fund menu marked `provisional: true`. The real menu is steward-published; the slugs
-   here are placeholders that happen to satisfy the schema.
+2. **Registry filenames: `{owner}--{name}.yml` or `{node_id}.yml`.** *(Settled 2026-09-07:
+   `{owner}--{name}.yml` is KEPT.)* The specification said node_id; this repository uses
+   `{owner}--{name}.yml` because an opaque `R_kgDO…` filename makes a curation pull request
+   unreviewable at a glance. Nothing downstream depends on the filename — node_id remains
+   the key in every artifact and every reference — and the published record contract now
+   states this path, so the next phase's importer has its one answer. Kept here because
+   the reasoning is worth reading, not because anything is open.
+3. **The curated category menu.** *(Settled 2026-09-07: the menu is the seven published
+   public-benefit categories of the statutes' Art. 7, and it is no longer written down
+   here at all.)* Health, education, poverty relief, humanitarian aid, environment, animal
+   welfare, research. `config/category-funds.json` is a byte-identical vendored copy of the
+   menu published in the contract repository, and the record schema's slug enum is a copy
+   of the same list; the validator asserts the two agree with each other and CI asserts
+   both match what is published. The provisional six-fund placeholder menu is gone, and so
+   is the drift between this repository's slugs and the website's. `provisional` stays true
+   for one reason only: the named organisations inside each category — the Recipient List —
+   are adopted at the founding assembly and published as the annex to the statutes, and
+   none is listed yet. The category NAMES are published.
 4. **The transparency-log type tokens for the two non-certificate JWS families.**
    `entitlement-record` and `ct-checkpoint` are this repository's names for them. If the
    contracts repository freezes different tokens, `schema/ct-segment.v1.json` is the one
@@ -196,7 +212,8 @@ this scaffold had to pick a side of in order to run at all.
 ## Reading order, if you are new to this
 
 1. `CONTRIBUTING.md` — the curation flow, and the three rules with no exceptions.
-2. `schema/registry-entry.v1.json` — every field carries the reason it exists.
+2. `schema/registry-v0-record.v1.json` — every field carries the reason it exists. It is
+   the published record contract, vendored: read it here, change it there.
 3. `scripts/index-build-lite.mjs` — the header explains what the build is and is not.
 4. `scripts/lib/jcs.mjs` — the header explains why the canonicalizer refuses rather than
    guesses. It is the most consequential file here: every published hash depends on it.

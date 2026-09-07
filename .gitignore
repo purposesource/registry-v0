@@ -9,6 +9,10 @@ node_modules/
 
 # Scratch output of the verify scripts' --base-dir mode.
 /.base-snapshot/
+# Where CI checks out the public contract repository to byte-compare the two vendored
+# files (schema/registry-v0-record.v1.json, config/category-funds.json) against their
+# published originals. Nothing in it is ours.
+/.vendor-check/
 # Test workspaces. tests/helpers.mjs copies fixture trees here because the gates resolve
 # --dir relative to the repository root, so a temp dir outside the repo would not work.
 /.tmp-*/
