@@ -32,10 +32,12 @@
 // Closing those re-specifies a frozen contract, which changes only by a dated FS-00 §6
 // amendment note — not by a builder patch and not by loosening a published schema. Until
 // that decision exists, `EXPECTED_DIVERGENCE` records the exact violation signatures each
-// class produces today, and the gate FAILS on anything not in the list, FAILS when a class
-// present in the run stops diverging while its entry survives, and reports the rest. It is
-// the list of what is not yet enforced, printed on every run — not a way to be green.
-// `--baseline` regenerates the block from the current output.
+// class produces today, and the gate FAILS on anything not in the list, FAILS on any
+// recorded SIGNATURE that has stopped occurring (naming the line to delete — per signature
+// and not per class, so a class that fixes all but one of its violations cannot sit green
+// on the rest), and reports what remains. It is the list of what is not yet enforced,
+// printed on every run — not a way to be green. `--baseline` regenerates the block from
+// the current output.
 
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
@@ -358,7 +360,12 @@ function main() {
     }
   }
 
-  // The ratchet: a baseline entry may not outlive the divergence it records.
+  // The ratchet: a baseline entry may not outlive the divergence it records — PER
+  // SIGNATURE, not per class. The re-spec lands one schema and often one field at a time,
+  // so a class that fixed all but one of its recorded violations would sit green on the
+  // rest under a class-level rule. A class this plane did not emit is skipped rather than
+  // demanded: `dist` has no repo record, and asking for its signatures would be asking
+  // about artifacts that do not exist.
   const stillDiverging = [];
   const notExercised = [];
   for (const [key, signatures] of Object.entries(expected)) {
@@ -367,7 +374,8 @@ function main() {
       notExercised.push(key);
       continue;
     }
-    if (record.signatures.size === 0) {
+    const gone = signatures.filter((sig) => !record.signatures.has(sig));
+    if (gone.length === signatures.length) {
       failures.add(
         key,
         `${record.checked} artifact(s) of this class now validate CLEANLY in ${args.dir}, but ` +
@@ -376,7 +384,14 @@ function main() {
       );
       continue;
     }
-    stillDiverging.push([key, record]);
+    for (const sig of gone) {
+      failures.add(
+        key,
+        `this recorded violation no longer occurs in ${args.dir}, so the baseline is stale — ` +
+          `delete the line from EXPECTED_DIVERGENCE["${args.dir}"]: ${sig}`,
+      );
+    }
+    if (record.signatures.size > 0) stillDiverging.push([key, record]);
   }
 
   if (args.baseline) {
