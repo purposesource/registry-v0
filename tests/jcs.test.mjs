@@ -62,6 +62,16 @@ test('refuses everything it cannot reproduce identically in another runtime', ()
   // A lone surrogate has no defined UTF-8 encoding.
   assert.throws(() => jcs('\ud800'), /lone surrogate/);
   assert.throws(() => jcs('\udc00x'), /lone surrogate/);
+  // And in a KEY, not only in a value. Keys reach the output through JSON.stringify
+  // rather than through the value walker, so this needed its own check: without it, the
+  // one escape the .NET port will not reproduce was refused on one axis and emitted on
+  // the other. Not reachable from a real ledger row — every column name is fixed ASCII —
+  // which is exactly why it needs a test.
+  assert.throws(() => jcs({ '\ud800': 1 }), /lone surrogate/);
+  assert.throws(() => jcs({ 'a\udc00': 1 }), /lone surrogate/);
+  assert.throws(() => jcs({ nested: { '\ud83d': true } }), /lone surrogate/);
+  // A well-formed surrogate PAIR in a key is not a lone surrogate and stays legal.
+  assert.equal(jcs({ '\u{1f600}': 1 }), '{"\u{1f600}":1}');
 });
 
 test('sha256Hex is lowercase hex over UTF-8', () => {

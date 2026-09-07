@@ -100,6 +100,15 @@ function ser(value, path) {
     const parts = [];
     for (const k of keys) {
       const v = value[k];
+      if (hasLoneSurrogate(k)) {
+        // A KEY needs this check spelled out here, because keys reach the output through
+        // the JSON.stringify below rather than through ser(), so they never pass the check
+        // that guards string values. The hazard is identical on both axes and it is the
+        // one this canonicalizer exists to prevent: V8 emits the \ud800 escape, while the
+        // .NET serializer that replaces this one throws or substitutes U+FFFD for a lone
+        // surrogate, so the chain would stop reproducing exactly where nobody is looking.
+        refuse(`the key ${JSON.stringify(k)} containing a lone surrogate`, path);
+      }
       if (v === undefined) {
         // JSON.stringify would DROP this key. Dropping a key silently changes a hash
         // input, so refuse instead: the caller must omit the key or pass null on purpose.
