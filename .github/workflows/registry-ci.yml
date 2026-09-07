@@ -83,6 +83,7 @@ jobs:
 
       # ----------------------------------------------------- append-only enforcement
       - name: Resolve the append-only baseline
+        id: baseline
         # The base revision the ledger and CT guards compare against:
         #   * pull_request -> the merge base, so a PR is judged against what main holds;
         #   * push         -> the commit that was there before, so a direct push is judged
@@ -91,25 +92,37 @@ jobs:
         # An unresolvable value is NOT an error here: the guards report the skip and the
         # chain checks still run. It IS worth reading the log line, though — a permanently
         # skipped guard means retro-edits are not being caught.
+        #
+        # A STEP OUTPUT, not $GITHUB_ENV. A variable written to $GITHUB_ENV is exported to
+        # every LATER step of the job, and the unit tests further down assert the guards'
+        # own no-baseline branch ("append-only comparison SKIPPED"). An inherited baseline
+        # hands those tests the thing they assert is absent, and four of them fail — which
+        # is exactly what happened the day main got its second commit and HEAD^ began to
+        # resolve. The two steps that need the value ask for it by name; nothing else in
+        # the job can see it.
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "PSN_BASE_REF=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_ENV"
+            echo "base=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
           elif [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
-            echo "PSN_BASE_REF=${{ github.event.before }}" >> "$GITHUB_ENV"
+            echo "base=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
           else
-            echo "PSN_BASE_REF=HEAD^" >> "$GITHUB_ENV"
+            echo "base=HEAD^" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Verify the ledger chain and the append-only law
         # Recomputes every row hash from genesis AND compares against the baseline. Both
         # halves are needed: the chain proves internal consistency, while a rewrite that
         # re-hashes the whole chain is internally perfect and only the baseline sees it.
+        env:
+          PSN_BASE_REF: ${{ steps.baseline.outputs.base }}
         run: npm run verify:ledger
 
       - name: Verify the certificate-transparency log
         # Monotonic sequence, well-formed and unique hashes, revocations referencing
         # earlier entries, the segment hash chain, no type v0 cannot issue, no personal
         # data (CERT-031), and nothing edited or deleted since the baseline.
+        env:
+          PSN_BASE_REF: ${{ steps.baseline.outputs.base }}
         run: npm run verify:ct
 
       # ------------------------------------------------------------------- unit tests

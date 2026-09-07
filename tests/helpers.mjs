@@ -27,7 +27,13 @@ export function runScript(script, args = [], env = {}) {
     const stdout = execFileSync(process.execPath, [join(REPO, 'scripts', script), ...args], {
       cwd: REPO,
       encoding: 'utf8',
-      env: { ...process.env, GENERATED_AT: NOW, CI: '', GITHUB_ACTIONS: '', ...env },
+      // A deterministic child environment. CI and GITHUB_ACTIONS are cleared so a run
+      // under Actions behaves like a run on a laptop; PSN_BASE_REF is cleared because a
+      // workflow value written to $GITHUB_ENV leaks into every later step of the job —
+      // including these tests, four of which assert the guards' OWN no-baseline branch
+      // and cannot assert it while a baseline is inherited. Whatever the caller passes in
+      // `env` still wins, so a test can hand a gate a baseline on purpose.
+      env: { ...process.env, GENERATED_AT: NOW, CI: '', GITHUB_ACTIONS: '', PSN_BASE_REF: '', ...env },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     return { code: 0, stdout, stderr: '' };
