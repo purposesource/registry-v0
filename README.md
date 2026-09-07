@@ -55,6 +55,7 @@ Individually:
 npm run validate            # every registry entry
 npm run build               # emit the artifact plane into dist/
 npm run check:artifacts     # independently verify what was emitted
+npm run check:schema        # ...and check it against the schemas {ORG}/spec publishes
 npm run build:demo          # the same build over the seeded examples + fixture data
 npm run verify:ledger       # recompute the hash chain; check append-only
 npm run verify:ct           # check the transparency log
@@ -64,6 +65,13 @@ npm run verify:ct           # check the transparency log
 `GENERATED_AT` if set, otherwise the HEAD commit date, and fails with an explanation if it
 has neither. It never reads the wall clock: a rebuild of unchanged data must produce
 identical bytes, or every rebuild would look like a change to every consumer.
+
+`npm run check:schema` needs the published JSON Schemas on disk. It reads `PSN_SPEC_DIR`,
+else `../spec/schemas`, else `spec/schemas`, and **fails loudly rather than skipping** when
+it finds none — a contract check that silently passes is not a contract check. The schemas
+are never vendored here: a copy would drift, and catching drift is the point. CI does an
+`actions/checkout` of the PUBLIC `{ORG}/spec` repository into `./spec`; no token is needed
+or used. Working on this repository alone? Clone `spec` beside it.
 
 ## What the build emits
 
@@ -86,6 +94,21 @@ Exactly this, and nothing else:
 
 The path set is a **closed catalog**. `scripts/check-artifacts.mjs` refuses any file
 outside it: adding a public URL is a specification amendment, not a build change.
+
+`scripts/check-artifacts-schema.mjs` holds the other end of the same rule, one level down:
+the catalog says which PATHS may exist, and the schemas say what the BYTES at them must
+look like. It maps every emitted path to its schema in `{ORG}/spec` and reports the file
+plus a JSON pointer for every violation. Several classes do not match today, and not
+because of a stray key — the emitted shape and the published schema are two different
+contracts (`registry.json`'s flat export; the snake_case ledger row set against a camelCase
+`ledger-row.v1`; `owner` as a string where the schema wants an object). Reconciling those
+re-specifies a frozen contract, which is a specification amendment and not a build change
+either. Until that decision exists, `EXPECTED_DIVERGENCE` in that script records each
+class's exact violation signatures per output directory, prints them on every run, and the
+gate fails on three things: a signature that is not recorded, an artifact no schema is
+mapped to, and a recorded class that has quietly become clean while its entry survives.
+The last one matters most — it is what stops the list turning into an exemption nobody
+granted.
 
 ### The four things the gate asserts, and why each one earns its keep
 

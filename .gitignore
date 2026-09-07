@@ -15,3 +15,8 @@ node_modules/
 
 .DS_Store
 Thumbs.db
+
+# CI checks out the PUBLIC purposesource/spec repository here so the schema gate can
+# validate the emitted plane against the contracts as published, rather than against a
+# vendored copy that could drift. It is never committed.
+/spec/

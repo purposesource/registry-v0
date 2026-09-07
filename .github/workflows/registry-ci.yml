@@ -34,6 +34,18 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
 
+      - name: Check out the published contracts (purposesource/spec)
+        # The schema gate below validates every emitted artifact against the schemas the
+        # PUBLIC spec repository ships — never a vendored copy, because a copy drifts and
+        # drift is the exact thing the gate exists to catch. The repo is public, so no
+        # token is needed or used. This checkout is untracked output: the hygiene step at
+        # the end looks at tracked files only, so it stays clean.
+        uses: actions/checkout@v4
+        with:
+          repository: purposesource/spec
+          path: spec
+          persist-credentials: false
+
       - name: Install
         run: npm ci
 
@@ -71,15 +83,28 @@ jobs:
         # on every artifact, and NO `example: true` identifier anywhere in the output.
         run: npm run check:artifacts
 
+      - name: Emitted artifacts validate against the published spec schemas
+        # The other half of check:artifacts. That gate asserts this repository's own
+        # invariants; this one asserts the BYTES match the contract published to the world
+        # in {ORG}/spec, which is what an adopter or a scanner validates with. Prints the
+        # recorded divergence list on every run — the classes that need an FS-00 §6
+        # amendment note before they can be enforced — and fails on anything not on it.
+        env:
+          PSN_SPEC_DIR: spec/schemas
+        run: npm run check:schema
+
       - name: Build and check the demo plane (examples + fixture ledger/CT included)
         # The published plane is empty until real repositories are curated, which makes
         # most per-repo assertions above vacuous — and the check says so rather than
         # reporting a confident pass. This step holds the other end: it builds the same
         # generator over the seeded examples and the fixture ledger/CT so every artifact
         # SHAPE is exercised on every run. Its output is never publishable.
+        env:
+          PSN_SPEC_DIR: spec/schemas
         run: |
           npm run build:demo
           npm run check:artifacts:demo
+          npm run check:schema:demo
 
       # ----------------------------------------------------- append-only enforcement
       - name: Resolve the append-only baseline

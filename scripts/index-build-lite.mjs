@@ -467,10 +467,13 @@ emit('stats.json', {
   loi: cfg.stats.loi,
   detectedUnclaimed: isPreLaunch ? null : detected.length,
   smallnessThresholds: cfg.stats.smallnessThresholds,
-  notes: [
-    'contributorsClaimed is null, not zero: the contributor claim flow is Phase E, so the figure is structurally unknowable at v0 rather than empty.',
-    'Numeric fields are null while state is `pre-launch`. A zero would read as a claim about the world; a null reads as "no data yet".',
-  ],
+  // No `notes` array. The two sentences it used to carry — contributorsClaimed is null
+  // because the claim flow is Phase E, and a null while `pre-launch` reads as "no data yet"
+  // where a zero would read as a claim about the world — are the published schema's own
+  // field descriptions (spec/schemas/stats.v1.json). stats.v1 is
+  // `additionalProperties: false`, so restating them in the artifact made every emitted
+  // stats.json fail the contract it claims to implement, which is a worse trade than
+  // trusting the schema to carry its own reasoning.
 });
 
 // ============================================================================== summary

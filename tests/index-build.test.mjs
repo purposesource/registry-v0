@@ -291,10 +291,15 @@ test('the leakage gate actually catches a leak when one is planted', (t) => {
   const r = runScript('index-build-lite.mjs', ['--out', out]);
   assert.equal(r.code, 0, r.stderr);
 
-  // Plant an example identifier in a legitimately-shaped artifact.
-  const stats = readOut(out, 'stats.json');
-  stats.notes.push('psn-example-org/widget-engine');
-  writeJsonAt(join(REPO, out, 'stats.json'), stats);
+  // Plant an example identifier in a legitimately-shaped artifact. The free-text `note` of
+  // the waiver registry is used because it is prose in a document with no hash over it, so
+  // the planted leak is the ONLY thing wrong with the plane — which is what makes this a
+  // test of the leakage gate rather than of some other invariant. (It used to be planted in
+  // `stats.json`'s `notes` array; that array is gone, because `spec/schemas/stats.v1.json`
+  // is `additionalProperties: false` and publishes no such field.)
+  const waivers = readOut(out, 'waivers/all.json');
+  waivers.note = `${waivers.note} psn-example-org/widget-engine`;
+  writeJsonAt(join(REPO, out, 'waivers/all.json'), waivers);
 
   const g = runScript('check-artifacts.mjs', ['--dir', out]);
   assert.equal(g.code, 1);
