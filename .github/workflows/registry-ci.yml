@@ -63,6 +63,16 @@ jobs:
       # the job's own read-only GITHUB_TOKEN and the workflow's `permissions:` block
       # stands unchanged. `main` is deliberately the ref: this repository must be level
       # with what is published right now, not with a tag someone forgot to move.
+      #
+      # PUBLICATION ORDER MATTERS, ONCE. Reading `main` means the two files must already
+      # be published there. On the run that first introduces a vendored file, the contract
+      # repository has to be published FIRST or this step takes its does-not-exist arm and
+      # this workflow goes red — and, because it also runs on a daily cron, re-announces
+      # that every morning until the contract set catches up. That red is a publication
+      # order problem and never a corrupted vendored byte; the step's own error message
+      # says so, so nobody has to guess from the log. Deliberately not softened to a
+      # warning: a guard that shrugs at a file it cannot find would also shrug the day
+      # this repository really is vendoring something that was never published.
       - name: Check out the published contract set
         uses: actions/checkout@v4
         with:
@@ -83,7 +93,7 @@ jobs:
             here="${pair%%:*}"
             there=".vendor-check/spec/${pair#*:}"
             if [ ! -f "$there" ]; then
-              echo "::error file=$here::the published copy $there does not exist. Either the contract set moved the file, or this repository is vendoring something that was never published."
+              echo "::error file=$here::the published contract set has no ${pair#*:}. The vendored bytes here are NOT in question. Either (a) this repository was published before the contract repository was — publish that one and re-run, this is the expected red on the run that first introduces a vendored file; or (b) the contract set moved or renamed the file, in which case re-vendor from its new path; or (c) this repository is vendoring something that was never published, which is the real defect this arm exists to catch."
               fail=1
             elif ! cmp -s "$here" "$there"; then
               echo "::error file=$here::differs from the published copy (${pair#*:}). This file is VENDORED: never edit it here. Change the published contract, then copy it back byte for byte."

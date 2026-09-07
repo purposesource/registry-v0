@@ -112,9 +112,15 @@ test('the seven categories are exactly the menu, and a pre-decision slug is refu
     assert.ok(validate(mutated({ impact_category_defaults: [gone] })).length > 0, `${gone} must be refused`);
   }
   assert.deepEqual(validate(mutated({ impact_category_defaults: menu })), [], 'all seven at once is legal');
-  assert.ok(
-    validate(mutated({ impact_category_defaults: [...menu, 'health'] })).length > 0,
-    'more entries than categories cannot be legal'
+  // `maxItems` is asserted as a KEYWORD, not by feeding the validator an eight-element
+  // list. With seven legal values and `uniqueItems`, an eighth DISTINCT entry cannot be
+  // constructed — a list long enough to trip the bound would trip uniqueness first, so a
+  // runtime probe here would pass for the wrong reason and keep passing if the bound were
+  // deleted.
+  assert.equal(
+    readJson('schema', 'registry-v0-record.v1.json').properties.impact_category_defaults.maxItems,
+    menu.length,
+    'the bound is the size of the menu: a record cannot pick more categories than exist'
   );
 });
 
