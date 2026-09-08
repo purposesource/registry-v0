@@ -2,24 +2,34 @@
 # path at v0 — every change to the registry, the ledger, or the CT log is reviewed and
 # merged by the steward operator.
 #
-# [HUMAN TODO] Replace the placeholder team with the real one once the GitHub org exists
-# and branch protection is configured. A CODEOWNERS file naming a team that does not
-# exist silently reviews nothing, which is worse than no file: GitHub cannot request a
-# review from a non-existent owner, so a "required review from Code Owners" rule can be
-# satisfied by nobody at all. Verify on the org's first PR that a review is actually
-# requested.
+# Dated note, 2026-09-08: every owner below is the organisation OWNER's login, not a
+# team. It used to name a `stewards` team of this organisation, and no such team exists
+# — a CODEOWNERS file naming a team that does not exist silently reviews nothing, which
+# is worse than no file: GitHub cannot request a review from an owner it cannot resolve,
+# so a "required review from Code Owners" rule can be satisfied by nobody at all. A
+# login GitHub can resolve is strictly better than a team it cannot.
+#
+# Two things this does NOT do. It does not make review required: branch protection
+# carries no required-review rule while the organisation has a single admin, who cannot
+# review their own pull request in any case. And it does not settle the owner for good:
+# creating the team, putting its members in it and turning the required-review rule on
+# is one operator act, tracked as PS-O14, and this file names the team again on the day
+# the team exists. Verify on the first pull request that a review is actually requested.
+#
+# Superseded wording: "[HUMAN TODO] Replace the placeholder team with the real one once
+# the GitHub org exists and branch protection is configured."
 
-*                       @purposesource/stewards
+*                       @DimitrieVatra
 
 # The three append-only trees. Same owner today; called out separately because the review
 # question is different — for these the reviewer is checking that nothing EARLIER changed,
 # which is a different read from reviewing a new registry entry.
-/ledger/                @purposesource/stewards
-/ct/                    @purposesource/stewards
-/registry/              @purposesource/stewards
+/ledger/                @DimitrieVatra
+/ct/                    @DimitrieVatra
+/registry/              @DimitrieVatra
 
 # The contracts and the gates. A change here changes what the data is allowed to be.
-/schema/                @purposesource/stewards
-/scripts/               @purposesource/stewards
-/config/                @purposesource/stewards
-/.github/               @purposesource/stewards
+/schema/                @DimitrieVatra
+/scripts/               @DimitrieVatra
+/config/                @DimitrieVatra
+/.github/               @DimitrieVatra

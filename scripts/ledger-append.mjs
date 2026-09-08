@@ -19,7 +19,7 @@
 //
 // SCOPE. This is a mechanical helper, not the money pipeline. The recording discipline —
 // what a row means, when it may be written, the attestation bundle behind it — belongs to
-// the operator recording script (FS-05 §4.2 / VS-27's `tools/record-purchases`). This
+// the operator recording script (FS-05 §4.2 / VS-32's `tools/record-purchases`). This
 // tool assumes the decision has already been made and only makes the append correct.
 
 import { existsSync } from 'node:fs';

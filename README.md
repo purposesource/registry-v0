@@ -196,12 +196,29 @@ this scaffold had to pick a side of in order to run at all.
    contracts repository freezes different tokens, `schema/ct-segment.v1.json` is the one
    place to change.
 5. **The GitHub org name.** `purposesource` is proposed and pending confirmation. It lives
-   only in `config/publish.json`; a rename is a one-file diff.
+   only in `config/publish.json`; a rename is a one-file diff. *(Closed 2026-09-08: the
+   organisation exists and the name is confirmed. It still lives only in
+   `config/publish.json` — the `org` key, L14 as this note is written, with the
+   superseded wording kept beside it — so the one-file-diff property outlived the
+   question, which is the reason it was worth building. Note what this does NOT confirm:
+   the steward organisation's legal name is a different name and a different open row.)*
 6. **CODEOWNERS names `@purposesource/stewards`, a team that does not exist yet.** A
    CODEOWNERS file naming a non-existent team reviews nothing while looking as though it
    does. Verify on the org's first pull request that a review is actually requested.
+   *(Corrected 2026-09-08: `.github/CODEOWNERS` names the organisation owner's login
+   instead, so every path now has an owner GitHub can actually request a review from.
+   The team is still to be created, and creating it — together with the required-review
+   rule that makes a CODEOWNERS file binding rather than advisory — is an operator act,
+   tracked as PS-O14; the file goes back to the team on the day the team exists. The
+   verification above stands unchanged: confirm on the first pull request that a review
+   is actually requested.)*
 7. **The full CC0 legal code is not vendored** — `LICENSE-DATA` carries the dedication
    notice and the canonical URL. Vendor the full text before the repository is made public.
+   *(Closed 2026-09-08: `LICENSE-DATA` now carries the full CC0 1.0 Universal legal code
+   verbatim, copied from the plain-text form served at the canonical URL, under this
+   repository's own scope note and a rule that says where the vendored text begins. The
+   repository was made public before the text was vendored rather than after; the order
+   is recorded here rather than tidied away.)*
 8. **Cross-repository triggering.** The architecture has a registry merge fire a
    `repository_dispatch` at the website repository. That needs cross-repository write
    credentials, which the OIDC-only, no-secrets rule forbids. This repository's CI

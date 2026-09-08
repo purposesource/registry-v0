@@ -5,7 +5,10 @@
     "HERE and nowhere else, so an org rename or a domain change is a one-file diff",
     "(FS-00 §6: {ORG} and {DOMAIN} substitute mechanically). Scripts read this file;",
     "no script hardcodes an org, a host, or a schema version.",
-    "The GitHub org name is proposed and pending final confirmation."
+    "The GitHub org name is CONFIRMED (2026-09-08): the organisation exists, and this",
+    "file is still the only place the name lives, so a rename is still a one-file diff.",
+    "Superseded wording: \"The GitHub org name is proposed and pending final",
+    "confirmation.\""
   ],
 
   "org": "purposesource",
