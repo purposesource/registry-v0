@@ -333,11 +333,11 @@ test('the guard SAYS SO when no baseline is available instead of reporting succe
 //
 // The three states below used to be one. The loader returned null for "nobody named a
 // baseline" AND for "a baseline was named and is not here", so the second one produced the
-// first one's green run and its one-line note. On the republished repository the pre-push
-// sha a push event names is gone whenever the publish rewrites the history rather than
-// appending to it — uncommon, and silent every time: the guard announced its own skip into
-// a log that stayed green. These tests keep the three states apart so that condition is
-// loud instead.
+// first one's green run and its one-line note. Publication APPENDS to the public tip, so
+// the pre-push sha a push event names is normally right there — but published history was
+// rewritten once, and the sha that push named then existed in no history any more. Once,
+// and silent: the guard announced its own skip into a log that stayed green. These tests
+// keep the three states apart so that condition is loud instead.
 
 test('a baseline that was NAMED and does not resolve FAILS — it is not the same as no baseline', () => {
   const dead = 'deadbeef'.repeat(5); // sha-shaped and cannot exist: the CI case exactly

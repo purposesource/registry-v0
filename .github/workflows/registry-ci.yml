@@ -175,35 +175,49 @@ jobs:
         #                      for schedule / dispatch, where nothing new should have
         #                      appeared at all.
         #
-        # RESOLVING IS THE WHOLE POINT, and candidate 2 is why. On a REPUBLISHED
-        # repository `github.event.before` can be a dead sha. Publication rewrites commit
-        # messages and strips private paths; normally it appends to the history already
-        # published, so the pre-push tip is still there and candidate 2 resolves. But when
-        # the rewrite itself changes, the whole lineage is republished under new shas and
-        # the tip a push event names is in no history that exists any more. Handing the
-        # guards a sha that is not here used to make them announce a skip and PASS, so the
-        # ONE push where this happened reported success while its own log said the
-        # retro-edit guard did not run — and a retro-edit to a published ledger row or CT
-        # entry would have gone through it. Nobody reads the log of a green job. The chain
-        # checks cannot cover for that: a rewrite that re-hashes the whole chain is
-        # internally perfect and only the baseline sees it. Rare is not the same as
-        # handled: the condition recurs whenever the publish rewrite changes, and it is
-        # silent by construction.
+        # RESOLVING IS THE WHOLE POINT, and candidate 2 is why. Publication into this
+        # repository is INCREMENTAL: translated commits are pushed on top of the last
+        # public tip, so `github.event.before` IS that tip and resolves on an ordinary
+        # publish push. Candidate 2 is therefore the normal baseline, and it covers a
+        # multi-commit push — every commit of the push is judged against what was
+        # published before it.
+        #
+        # What breaks it is a rewrite of published history, which is an act performed ON
+        # this repository and not a property of publishing. It happened once: after a
+        # one-time purification of the public history, the tip a push event named was in
+        # no history that existed any more. Handing the guards a sha that is not here used
+        # to make them announce a skip and PASS, so that one push reported success while
+        # its own log said the retro-edit guard did not run — and a retro-edit to a
+        # published ledger row or CT entry would have gone through it. Nobody reads the log
+        # of a green job. The chain checks cannot cover for that: a rewrite that re-hashes
+        # the whole chain is internally perfect and only the baseline sees it. Once in nine
+        # pushes is not "handled" when the failure is silent — so it is now a LOUD
+        # narrowing, never a green skip.
         #
         # So this step now picks a revision that EXISTS, or fails. The only run that
         # legitimately has no baseline is a repository's first commit, where nothing has
         # been published and nothing can have been retro-edited; the guards report that
         # skip and the empty output below is how they are told.
         #
-        # WHAT CANDIDATE 3 DOES AND DOES NOT PROVE. `HEAD^` proves the TIP commit
-        # retro-edited nothing. A retro-edit made in an earlier commit of a multi-commit
-        # push is not visible from there, and neither candidate 2 nor 3 is an INDEPENDENT
-        # medium in CERT-032's sense — both live in the history publication rewrites, so
-        # neither can prove that what the world downloaded last week is unedited. That
-        # needs a baseline outside git: a digest carried in a published artifact, or a
-        # deterministically republished tag. Which one is an open operator decision,
-        # because it decides what the append-only law is mechanically checked against.
-        # Until it is taken, this step says out loud which candidate it used.
+        # WHAT CANDIDATE 3 DOES AND DOES NOT PROVE. Candidate 3 is the narrowing, and it
+        # applies only in the window right after a rewrite of published history. `HEAD^`
+        # proves the TIP commit retro-edited nothing; a retro-edit made in an earlier
+        # commit of that push is not visible from there. This step says out loud whenever
+        # it has narrowed, and why, because a narrowed comparison that looks like a full
+        # one is the failure this whole block exists to prevent.
+        #
+        # AND THIS JOB IS A TRIPWIRE, NOT THE INDEPENDENT MEDIUM CERT-032 ASKS FOR. No
+        # candidate here can be: a check that runs inside the repository it is checking
+        # reads the same history an editor of that history controls, so none of them proves
+        # that what the world downloaded last week is unedited. Deliberately not solved by
+        # reaching outside git from here — this job needs no secrets and no network beyond
+        # public checkouts, and that is worth more than a stronger-looking baseline. The
+        # durable proof lives elsewhere by design: the public git mirror, the periodic
+        # signed transparency-log checkpoint (CERT-032, PS-135) and the ledger WORM
+        # snapshot (FS13-071). A tag pinning a pre-rewrite tip is NOT an option and must
+        # not be added — it would keep purified-away history alive in the public repo.
+        # This guard is a tripwire with a known end date: these trees retire when the
+        # data plane moves to the site (PS-93 -> PS-96 -> PS-36).
         #
         # A STEP OUTPUT, not $GITHUB_ENV. A variable written to $GITHUB_ENV is exported to
         # every LATER step of the job, and the unit tests further down assert the guards'

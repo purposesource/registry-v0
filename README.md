@@ -78,15 +78,26 @@ recomputed from genesis, which proves no field of a committed row or entry was a
 **append-only** half compares against a BEFORE picture, because a chain alone cannot prove
 history was not rewritten: recompute every hash after an edit and the chain is valid again
 over falsified rows. That picture comes from `--base-ref <rev>` (or `PSN_BASE_REF`, which is
-what CI sets) or from `--base-dir <path>`, which reads an unpacked copy of a published
-release — the way a third party can run this guard without trusting this repository's git
-history at all.
+what CI sets) or from `--base-dir <path>`, which reads the trees out of any directory — the
+way a third party can run this guard without trusting THIS checkout's git history. Point it
+at a clone of the public mirror at an earlier commit, at the ledger WORM snapshot
+(FS13-071), or at a tree pinned by a signed transparency-log checkpoint (CERT-032). There
+are deliberately **no releases and no tags** to download: publication appends translated
+commits to the public tip, and a tag pinning a superseded tip is not something this project
+will publish.
 
 Run them with no baseline and they say the comparison was skipped, and pass: nobody asked
 for it. Name a baseline that does not resolve and they **fail**. That distinction is the
 gate: naming a baseline is asking for the comparison, and a run that reports success without
 having made it is the one outcome an append-only law cannot survive. Nobody reads the log of
 a green job.
+
+Both are a **tripwire, not proof**. A check that runs inside the repository it checks reads
+the history an editor of that history controls, so passing here is not evidence that what
+you downloaded last week is unedited. That evidence is the public mirror plus the periodic
+signed checkpoint (CERT-032) and the ledger WORM snapshot (FS13-071) — outside this
+repository on purpose. What the tripwire buys is that an edit has to get past a gate that
+says out loud what it compared and refuses to guess.
 
 ## What the build emits
 

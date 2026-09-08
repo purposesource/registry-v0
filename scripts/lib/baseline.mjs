@@ -10,22 +10,29 @@
 // diff that edits or deletes an existing entry", and why CERT-032 wants the log in an
 // independent medium.
 //
-// At v0 the independent medium is git history. This module reads the ledger and CT trees
-// as they existed at a base revision so the verify scripts can assert that every row and
-// every entry present then is still present now, byte-identical, at the same position.
+// At v0 the independent medium is the PUBLIC MIRROR plus the periodic signed checkpoint
+// (CERT-032) and the ledger WORM snapshot (FS13-071) — deliberately not this file. What
+// this module gives you is a TRIPWIRE: it reads the ledger and CT trees as they existed at
+// a base revision so the verify scripts can assert that every row and every entry present
+// then is still present now, byte-identical, at the same position. Run inside the
+// repository being checked it reads a history that repository's owner controls, so it
+// catches an edit; it does not prove one never happened.
 //
 // Two sources, one shape:
 //   --base-ref <rev>   read the trees out of git (what CI uses)
-//   --base-dir <path>  read them from a directory (what the tests use, and what a human
-//                      can use against an unpacked archive of a published release)
+//   --base-dir <path>  read them from ANY directory (what the tests use, and how a third
+//                      party points this at a clone of the public mirror at an earlier
+//                      commit, at the WORM snapshot, or at a checkpoint-pinned tree —
+//                      there are no releases or tags to unpack, by design)
 //
 // AND THREE OUTCOMES, KEPT APART. A baseline that was never asked for is a skip; a
 // baseline that was asked for and did not arrive is a FAILURE. Collapsing the two — which
 // is what returning `null` for both did — is how this guard came to report success without
-// comparing anything at all: the publish rewrites commit messages and strips private paths,
-// so when it republishes the history rather than appending to it, the pre-push sha a push
-// event names does not exist any more. The loader said so in one line and the job went
-// green. See `usableBaseline()` for the rule each outcome earns.
+// comparing anything at all. Publication APPENDS translated commits to the public tip, so
+// the sha a push event names is normally right there; but published history was rewritten
+// once, and the sha that push named then existed in no history any more. The loader said so
+// in one line and the job went green. See `usableBaseline()` for the rule each outcome
+// earns.
 
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
