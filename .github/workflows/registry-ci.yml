@@ -175,15 +175,20 @@ jobs:
         #                      for schedule / dispatch, where nothing new should have
         #                      appeared at all.
         #
-        # RESOLVING IS THE WHOLE POINT, and candidate 2 is why. On a REPUBLISHED repository
-        # `github.event.before` is routinely a dead sha: publication rewrites commit
-        # messages and strips private paths, so every publish produces new shas and the
-        # pre-push tip is not in the new history. Handing the guards a sha that is not here
-        # used to make them announce a skip and PASS — so on push events the retro-edit
-        # guard had never once run against a resolvable baseline, every run reported
-        # success, and a retro-edit to a published ledger row or CT entry would have gone
-        # through. The chain checks cannot cover for that: a rewrite that re-hashes the
-        # whole chain is internally perfect and only the baseline sees it.
+        # RESOLVING IS THE WHOLE POINT, and candidate 2 is why. On a REPUBLISHED
+        # repository `github.event.before` can be a dead sha. Publication rewrites commit
+        # messages and strips private paths; normally it appends to the history already
+        # published, so the pre-push tip is still there and candidate 2 resolves. But when
+        # the rewrite itself changes, the whole lineage is republished under new shas and
+        # the tip a push event names is in no history that exists any more. Handing the
+        # guards a sha that is not here used to make them announce a skip and PASS, so the
+        # ONE push where this happened reported success while its own log said the
+        # retro-edit guard did not run — and a retro-edit to a published ledger row or CT
+        # entry would have gone through it. Nobody reads the log of a green job. The chain
+        # checks cannot cover for that: a rewrite that re-hashes the whole chain is
+        # internally perfect and only the baseline sees it. Rare is not the same as
+        # handled: the condition recurs whenever the publish rewrite changes, and it is
+        # silent by construction.
         #
         # So this step now picks a revision that EXISTS, or fails. The only run that
         # legitimately has no baseline is a repository's first commit, where nothing has
@@ -228,11 +233,18 @@ jobs:
             why="the commit this ref pointed at before the push, i.e. what was published"
           elif resolves "HEAD^"; then
             pick="$(git rev-parse HEAD^)"
-            case "${PUSH_BEFORE:-}" in
-              '')       said="no push event named an earlier commit (schedule or manual run)" ;;
-              "$ZEROS") said="the push created this ref, so it named no earlier commit" ;;
-              *)        said="github.event.before ($PUSH_BEFORE) is not in this checkout, which is the signature of a republished history" ;;
-            esac
+            # Say which candidate was named and missing. Getting this wrong is not
+            # cosmetic: this line is what a reader has to reason from when a run
+            # narrows itself, and naming the wrong event sends them to the wrong cause.
+            if [ -n "${PR_BASE:-}" ]; then
+              said="this pull request's base commit ($PR_BASE) is not in this checkout"
+            elif [ -z "${PUSH_BEFORE:-}" ]; then
+              said="no push event named an earlier commit (schedule or manual run)"
+            elif [ "$PUSH_BEFORE" = "$ZEROS" ]; then
+              said="the push created this ref, so it named no earlier commit"
+            else
+              said="github.event.before ($PUSH_BEFORE) is not in this checkout, which is the signature of a republished history"
+            fi
             why="HEAD^, the previous commit of this lineage; $said. The comparison is therefore narrowed to: the tip commit retro-edited nothing"
           fi
 

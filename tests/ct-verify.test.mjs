@@ -321,9 +321,10 @@ test('the guard SAYS SO when no baseline is available', () => {
 // CERT-030 makes the log the rogue-issuance detector, and CERT-032 wants it in a medium the
 // issuer does not control. At v0 that medium is git history — so a baseline the checkout
 // does not have is the detector switched off. It used to be reported as the same skip as
-// "nobody asked", which on the republished repository (new shas on every publish, so the
-// pre-push sha a push event names is gone) meant the guard had never run and every run said
-// success. These tests keep the three states apart.
+// "nobody asked", so on the republished repository — where the pre-push sha a push event
+// names is gone whenever a publish rewrites the history instead of appending to it — the
+// detector switched itself off and the run still reported success. These tests keep the
+// three states apart.
 
 test('a baseline that was NAMED and does not resolve FAILS — it is not the same as no baseline', () => {
   const dead = 'deadbeef'.repeat(5); // sha-shaped and cannot exist: the CI case exactly

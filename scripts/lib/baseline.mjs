@@ -21,10 +21,10 @@
 //
 // AND THREE OUTCOMES, KEPT APART. A baseline that was never asked for is a skip; a
 // baseline that was asked for and did not arrive is a FAILURE. Collapsing the two — which
-// is what returning `null` for both did — is how this guard came to report success on
-// every push of a republished history without ever comparing anything: the publish rewrites
-// commit messages and strips private paths, so the pre-push sha a push event names does not
-// exist in the republished repository, the loader said so in one line, and the job went
+// is what returning `null` for both did — is how this guard came to report success without
+// comparing anything at all: the publish rewrites commit messages and strips private paths,
+// so when it republishes the history rather than appending to it, the pre-push sha a push
+// event names does not exist any more. The loader said so in one line and the job went
 // green. See `usableBaseline()` for the rule each outcome earns.
 
 import { execFileSync } from 'node:child_process';
