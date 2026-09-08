@@ -9,7 +9,9 @@
 //   * a seq gap, duplicate, or misfiled month;
 //   * a row type that does not exist at v0 (every allocation type);
 //   * a row removed or edited since the base revision — the RETRO-EDIT case;
-//   * any change at all to a month file whose month has closed.
+//   * any change at all to a month file whose month has closed;
+//   * a baseline that was NAMED and could not be used, which is the retro-edit guard
+//     failing to run at all.
 //
 // WHY TWO MECHANISMS. The chain proves internal consistency. It does not prove that
 // history was not rewritten: recompute every hash after an edit and the chain is valid
@@ -17,15 +19,17 @@
 // the reason CERT-032 wants the log in an independent medium. At v0 the independent
 // medium is git history — see the header of scripts/lib/baseline.mjs.
 //
-// If no baseline is available (first commit, or a shallow clone), the run SAYS SO and
-// continues with the chain checks only. A skipped guard that announces itself is
-// recoverable; a skipped guard that reports success is not.
+// When NOBODY NAMED a baseline — a developer running the chain checks on a laptop — the
+// run says so and continues with the chain checks only. When a baseline WAS named and
+// cannot be used, the run FAILS. The difference is the whole lesson: a skipped guard that
+// announces itself is recoverable, and a skipped guard that reports success is not, because
+// nobody reads the log of a green job.
 
 import { resolve } from 'node:path';
 
 import { Failures, config, generatedAt, noteLine, parseArgs, schemaValidator, ROOT } from './lib/repo.mjs';
 import { LEDGER_DIR, isMonthClosed, loadLedger, monthCloseDate, strayLedgerFiles, verifyChain } from './lib/ledger.mjs';
-import { assertAppendOnly, loadBaseline } from './lib/baseline.mjs';
+import { assertAppendOnly, loadBaseline, usableBaseline } from './lib/baseline.mjs';
 
 const args = parseArgs(process.argv.slice(2), {
   flags: [],
@@ -34,6 +38,11 @@ const args = parseArgs(process.argv.slice(2), {
     dir: 'ledger',
     // PSN_BASE_REF lets CI supply the base commit without every workflow step repeating
     // the flag; the flag still wins when both are present.
+    //
+    // `|| null` maps an EMPTY variable to "no baseline named", which is what a workflow
+    // sets when it has decided there is legitimately nothing to compare against. A
+    // NON-empty value that does not resolve is a different thing entirely and now fails
+    // the gate — see usableBaseline() in lib/baseline.mjs.
     'base-ref': process.env.PSN_BASE_REF || null,
     'base-dir': null,
   },
@@ -74,7 +83,14 @@ const { headHash, headSeq, rowCount } = verifyChain(months, cfg, failures);
 
 // ---------------------------------------------------------------- month immutability
 
-const baseline = loadBaseline({ baseRef: args['base-ref'], baseDir: args['base-dir'] });
+const baseline = usableBaseline({
+  baseline: loadBaseline({ baseRef: args['base-ref'], baseDir: args['base-dir'] }),
+  tree: 'ledger',
+  currentCount: rowCount,
+  failures,
+  skipNote:
+    'append-only comparison SKIPPED (no baseline). Chain and schema checks ran; the retro-edit guard did not.',
+});
 
 for (const m of months) {
   if (!isMonthClosed(m.month, cfg, now)) continue;
@@ -94,9 +110,9 @@ for (const m of months) {
 
 // -------------------------------------------------------------------- append-only
 
-if (!baseline) {
-  noteLine('append-only comparison SKIPPED (no baseline). Chain and schema checks ran; the retro-edit guard did not.');
-} else {
+// One branch: usableBaseline() has already printed the honest note, or recorded the
+// failure, in every case where there is nothing to compare against.
+if (baseline) {
   noteLine(`append-only baseline: ${baseline.source} (${baseline.ledgerRows.size} row(s))`);
   const current = new Map();
   for (const m of months) for (const row of m.data.rows || []) current.set(row.seq, row);

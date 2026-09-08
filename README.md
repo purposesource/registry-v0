@@ -73,6 +73,21 @@ are never vendored here: a copy would drift, and catching drift is the point. CI
 `actions/checkout` of the PUBLIC `{ORG}/spec` repository into `./spec`; no token is needed
 or used. Working on this repository alone? Clone `spec` beside it.
 
+`npm run verify:ledger` and `npm run verify:ct` are each two checks. The **chain** is
+recomputed from genesis, which proves no field of a committed row or entry was altered. The
+**append-only** half compares against a BEFORE picture, because a chain alone cannot prove
+history was not rewritten: recompute every hash after an edit and the chain is valid again
+over falsified rows. That picture comes from `--base-ref <rev>` (or `PSN_BASE_REF`, which is
+what CI sets) or from `--base-dir <path>`, which reads an unpacked copy of a published
+release — the way a third party can run this guard without trusting this repository's git
+history at all.
+
+Run them with no baseline and they say the comparison was skipped, and pass: nobody asked
+for it. Name a baseline that does not resolve and they **fail**. That distinction is the
+gate: naming a baseline is asking for the comparison, and a run that reports success without
+having made it is the one outcome an append-only law cannot survive. Nobody reads the log of
+a green job.
+
 ## What the build emits
 
 Exactly this, and nothing else:

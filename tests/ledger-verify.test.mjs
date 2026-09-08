@@ -10,7 +10,7 @@
 //     enough. That is the case FS-07 §5.4's "never restate" actually depends on.
 
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
 
@@ -327,6 +327,69 @@ test('the guard SAYS SO when no baseline is available instead of reporting succe
   assert.equal(r.code, 0);
   assert.match(r.stdout, /append-only comparison SKIPPED/);
   assert.match(r.stdout, /the retro-edit guard did not/);
+});
+
+// ------------------------------------------- a baseline that was ASKED FOR and did not come
+//
+// The three states below used to be one. The loader returned null for "nobody named a
+// baseline" AND for "a baseline was named and is not here", so the second one produced the
+// first one's green run and its one-line note — which is how the retro-edit guard came to
+// have never run on a push of the republished repository while every run reported success.
+// A published history gets new shas on every publish, so the pre-push sha a push event
+// names is routinely gone, and the guard said so into a green log nobody reads.
+
+test('a baseline that was NAMED and does not resolve FAILS — it is not the same as no baseline', () => {
+  const dead = 'deadbeef'.repeat(5); // sha-shaped and cannot exist: the CI case exactly
+  const r = runScript('ledger-verify.mjs', ['--dir', FX, '--base-ref', dead]);
+
+  assert.equal(r.code, 1, 'naming a baseline is asking for the comparison; not doing it is a failure');
+  assert.match(r.stderr, /does not resolve in this checkout/);
+  assert.match(r.stderr, /retro-edit guard did NOT run/);
+  // The distinction is the point: this outcome must not be reported as the skip.
+  assert.doesNotMatch(r.stdout, /SKIPPED/);
+});
+
+test('an unresolvable PSN_BASE_REF fails the same way a flag does — the guards read the env in CI', () => {
+  const r = runScript('ledger-verify.mjs', ['--dir', FX], { PSN_BASE_REF: 'deadbeef'.repeat(5) });
+  assert.equal(r.code, 1);
+  assert.match(r.stderr, /does not resolve in this checkout/);
+});
+
+test('an EMPTY PSN_BASE_REF still means "no baseline named" and skips honestly', () => {
+  // A workflow that has decided there is legitimately nothing to compare against says so
+  // with an empty value. That has to stay a skip, or a repository's first commit cannot
+  // pass its own CI.
+  const r = runScript('ledger-verify.mjs', ['--dir', FX], { PSN_BASE_REF: '' });
+  assert.equal(r.code, 0, r.stderr);
+  assert.match(r.stdout, /append-only comparison SKIPPED/);
+});
+
+test('a baseline that resolves but holds NO month file is refused while rows exist', (t) => {
+  // The other false green: the baseline is found, so the log prints a baseline line and
+  // the guard reads as if it ran — but the revision has no ledger at all, every row counts
+  // as new, and nothing is compared. A wrong path for the checkout looks exactly like this.
+  const w = ws('base-empty-tree');
+  t.after(() => cleanup(w));
+  mkdirSync(join(REPO, w, 'empty-base', 'ledger'), { recursive: true });
+
+  const r = verify(w, ['--base-dir', `${w}/empty-base`]);
+  assert.equal(r.code, 1);
+  assert.match(r.stderr, /holds no ledger month file/);
+  assert.match(r.stderr, /vacuous pass is worse than an announced skip/);
+});
+
+test('the same empty baseline PASSES when nothing is committed here either, and says why', (t) => {
+  // The committed ledger is one month file with no rows, so there is genuinely no published
+  // record that could have been removed or edited. That earns a pass — and a sentence
+  // saying nothing was compared, rather than a baseline line implying something was.
+  const w = ws('base-empty-both');
+  t.after(() => cleanup(w));
+  mkdirSync(join(REPO, w, 'empty-base', 'ledger'), { recursive: true });
+
+  const r = runScript('ledger-verify.mjs', ['--base-dir', `${w}/empty-base`]);
+  assert.equal(r.code, 0, r.stderr);
+  assert.match(r.stdout, /nothing to compare/);
+  assert.match(r.stdout, /no published record that could have been removed or edited/);
 });
 
 // ---------------------------------------------------------------- the append tool

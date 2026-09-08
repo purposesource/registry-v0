@@ -10,24 +10,29 @@
 //   * a broken segment chain (prevSegmentSha256 not matching the previous file's bytes);
 //   * a `typ` a v0 log may not contain;
 //   * anything email-shaped anywhere in an entry;
-//   * an entry edited or deleted since the base revision.
+//   * an entry edited or deleted since the base revision;
+//   * a baseline that was NAMED and could not be used, which is the retro-edit guard
+//     failing to run at all.
 //
 // Why the guard is worth this much code: CERT-030 makes log presence a REQUIREMENT of
 // verification, so the log is the rogue-issuance detector. A log that can be quietly
-// rewritten detects nothing. See scripts/lib/baseline.mjs for why a hash chain alone
-// cannot establish append-only-ness.
+// rewritten detects nothing — and neither does a guard that reports success without having
+// compared anything. See scripts/lib/baseline.mjs for both halves of that.
 
 import { resolve } from 'node:path';
 
 import { Failures, ROOT, config, noteLine, parseArgs, schemaValidator } from './lib/repo.mjs';
 import { CT_DIR, loadCt, strayCtFiles, verifyCt } from './lib/ct.mjs';
-import { assertAppendOnly, loadBaseline } from './lib/baseline.mjs';
+import { assertAppendOnly, loadBaseline, usableBaseline } from './lib/baseline.mjs';
 
 const args = parseArgs(process.argv.slice(2), {
   flags: [],
   values: ['dir', 'base-ref', 'base-dir'],
   defaults: {
     dir: 'ct',
+    // `|| null` maps an EMPTY variable to "no baseline named", which is what a workflow
+    // sets when it has decided there is legitimately nothing to compare against. A
+    // non-empty value that does not resolve fails the gate — see lib/baseline.mjs.
     'base-ref': process.env.PSN_BASE_REF || null,
     'base-dir': null,
   },
@@ -62,11 +67,18 @@ const { headSeq, headSegment, entryCount } = verifyCt(segments, cfg, failures);
 
 // ------------------------------------------------------------------------ append-only
 
-const baseline = loadBaseline({ baseRef: args['base-ref'], baseDir: args['base-dir'] });
+const baseline = usableBaseline({
+  baseline: loadBaseline({ baseRef: args['base-ref'], baseDir: args['base-dir'] }),
+  tree: 'ct',
+  currentCount: entryCount,
+  failures,
+  skipNote:
+    'append-only comparison SKIPPED (no baseline). Structural checks ran; the retro-edit guard did not.',
+});
 
-if (!baseline) {
-  noteLine('append-only comparison SKIPPED (no baseline). Structural checks ran; the retro-edit guard did not.');
-} else {
+// One branch: usableBaseline() has already printed the honest note, or recorded the
+// failure, in every case where there is nothing to compare against.
+if (baseline) {
   noteLine(`append-only baseline: ${baseline.source} (${baseline.ctEntries.size} entr${baseline.ctEntries.size === 1 ? 'y' : 'ies'})`);
   const current = new Map();
   for (const s of segments) for (const e of s.data.entries || []) current.set(e.seq, e);

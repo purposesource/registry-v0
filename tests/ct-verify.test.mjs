@@ -6,7 +6,7 @@
 // rewritten. Each test below is one way it could be, and asserts CI goes red.
 
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
 
@@ -314,4 +314,57 @@ test('the guard SAYS SO when no baseline is available', () => {
   const r = runScript('ct-verify.mjs', ['--dir', FX]);
   assert.equal(r.code, 0);
   assert.match(r.stdout, /append-only comparison SKIPPED/);
+});
+
+// ----------------------------------- a baseline that was ASKED FOR and did not come
+//
+// CERT-030 makes the log the rogue-issuance detector, and CERT-032 wants it in a medium the
+// issuer does not control. At v0 that medium is git history — so a baseline the checkout
+// does not have is the detector switched off. It used to be reported as the same skip as
+// "nobody asked", which on the republished repository (new shas on every publish, so the
+// pre-push sha a push event names is gone) meant the guard had never run and every run said
+// success. These tests keep the three states apart.
+
+test('a baseline that was NAMED and does not resolve FAILS — it is not the same as no baseline', () => {
+  const dead = 'deadbeef'.repeat(5); // sha-shaped and cannot exist: the CI case exactly
+  const r = runScript('ct-verify.mjs', ['--dir', FX, '--base-ref', dead]);
+
+  assert.equal(r.code, 1, 'a log whose baseline is missing has no retro-edit guard at all');
+  assert.match(r.stderr, /does not resolve in this checkout/);
+  assert.match(r.stderr, /retro-edit guard did NOT run/);
+  assert.doesNotMatch(r.stdout, /SKIPPED/);
+});
+
+test('an unresolvable PSN_BASE_REF fails the same way a flag does — the guards read the env in CI', () => {
+  const r = runScript('ct-verify.mjs', ['--dir', FX], { PSN_BASE_REF: 'deadbeef'.repeat(5) });
+  assert.equal(r.code, 1);
+  assert.match(r.stderr, /does not resolve in this checkout/);
+});
+
+test('an EMPTY PSN_BASE_REF still means "no baseline named" and skips honestly', () => {
+  const r = runScript('ct-verify.mjs', ['--dir', FX], { PSN_BASE_REF: '' });
+  assert.equal(r.code, 0, r.stderr);
+  assert.match(r.stdout, /append-only comparison SKIPPED/);
+});
+
+test('a baseline that resolves but holds NO segment is refused while entries exist', (t) => {
+  const w = ws('base-empty-tree');
+  t.after(() => cleanup(w));
+  mkdirSync(join(REPO, w, 'empty-base', 'ct'), { recursive: true });
+
+  const r = verify(w, ['--base-dir', `${w}/empty-base`]);
+  assert.equal(r.code, 1);
+  assert.match(r.stderr, /holds no log segment/);
+  assert.match(r.stderr, /vacuous pass is worse than an announced skip/);
+});
+
+test('the same empty baseline PASSES when the log here is empty too, and says why', (t) => {
+  const w = ws('base-empty-both');
+  t.after(() => cleanup(w));
+  mkdirSync(join(REPO, w, 'empty-base', 'ct'), { recursive: true });
+
+  const r = runScript('ct-verify.mjs', ['--base-dir', `${w}/empty-base`]);
+  assert.equal(r.code, 0, r.stderr);
+  assert.match(r.stdout, /nothing to compare/);
+  assert.match(r.stdout, /no published record that could have been removed or edited/);
 });

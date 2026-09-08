@@ -165,14 +165,40 @@ jobs:
       # ----------------------------------------------------- append-only enforcement
       - name: Resolve the append-only baseline
         id: baseline
-        # The base revision the ledger and CT guards compare against:
-        #   * pull_request -> the merge base, so a PR is judged against what main holds;
-        #   * push         -> the commit that was there before, so a direct push is judged
-        #                     against what was published;
-        #   * schedule / dispatch -> HEAD^, i.e. nothing new should have appeared.
-        # An unresolvable value is NOT an error here: the guards report the skip and the
-        # chain checks still run. It IS worth reading the log line, though — a permanently
-        # skipped guard means retro-edits are not being caught.
+        # The base revision the ledger and CT guards compare against. Candidates in order,
+        # and the FIRST ONE THAT RESOLVES IN THIS CHECKOUT wins:
+        #   1. pull_request -> the pull request's base commit, so a PR is judged against
+        #                      what main holds.
+        #   2. push         -> the commit this ref pointed at before the push, so a direct
+        #                      push is judged against what was published.
+        #   3. HEAD^        -> the previous commit of this lineage. Also the right answer
+        #                      for schedule / dispatch, where nothing new should have
+        #                      appeared at all.
+        #
+        # RESOLVING IS THE WHOLE POINT, and candidate 2 is why. On a REPUBLISHED repository
+        # `github.event.before` is routinely a dead sha: publication rewrites commit
+        # messages and strips private paths, so every publish produces new shas and the
+        # pre-push tip is not in the new history. Handing the guards a sha that is not here
+        # used to make them announce a skip and PASS — so on push events the retro-edit
+        # guard had never once run against a resolvable baseline, every run reported
+        # success, and a retro-edit to a published ledger row or CT entry would have gone
+        # through. The chain checks cannot cover for that: a rewrite that re-hashes the
+        # whole chain is internally perfect and only the baseline sees it.
+        #
+        # So this step now picks a revision that EXISTS, or fails. The only run that
+        # legitimately has no baseline is a repository's first commit, where nothing has
+        # been published and nothing can have been retro-edited; the guards report that
+        # skip and the empty output below is how they are told.
+        #
+        # WHAT CANDIDATE 3 DOES AND DOES NOT PROVE. `HEAD^` proves the TIP commit
+        # retro-edited nothing. A retro-edit made in an earlier commit of a multi-commit
+        # push is not visible from there, and neither candidate 2 nor 3 is an INDEPENDENT
+        # medium in CERT-032's sense — both live in the history publication rewrites, so
+        # neither can prove that what the world downloaded last week is unedited. That
+        # needs a baseline outside git: a digest carried in a published artifact, or a
+        # deterministically republished tag. Which one is an open operator decision,
+        # because it decides what the append-only law is mechanically checked against.
+        # Until it is taken, this step says out loud which candidate it used.
         #
         # A STEP OUTPUT, not $GITHUB_ENV. A variable written to $GITHUB_ENV is exported to
         # every LATER step of the job, and the unit tests further down assert the guards'
@@ -181,19 +207,68 @@ jobs:
         # is exactly what happened the day main got its second commit and HEAD^ began to
         # resolve. The two steps that need the value ask for it by name; nothing else in
         # the job can see it.
+        # Event values arrive through `env:`, never interpolated into the script body: a
+        # `${{ }}` inside `run:` is textual substitution into a shell, and this job's
+        # least-privilege posture is worth keeping literal.
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "base=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
-          elif [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
-            echo "base=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "base=HEAD^" >> "$GITHUB_OUTPUT"
+          set -eu
+          ZEROS=0000000000000000000000000000000000000000
+          resolves() { [ -n "${1:-}" ] && git rev-parse --verify --quiet "$1^{commit}" >/dev/null; }
+
+          pick=""
+          why=""
+          if resolves "${PR_BASE:-}"; then
+            pick="$PR_BASE"
+            why="the pull request's base commit"
+          elif [ "${PUSH_BEFORE:-}" != "$ZEROS" ] && resolves "${PUSH_BEFORE:-}"; then
+            pick="$PUSH_BEFORE"
+            why="the commit this ref pointed at before the push, i.e. what was published"
+          elif resolves "HEAD^"; then
+            pick="$(git rev-parse HEAD^)"
+            case "${PUSH_BEFORE:-}" in
+              '')       said="no push event named an earlier commit (schedule or manual run)" ;;
+              "$ZEROS") said="the push created this ref, so it named no earlier commit" ;;
+              *)        said="github.event.before ($PUSH_BEFORE) is not in this checkout, which is the signature of a republished history" ;;
+            esac
+            why="HEAD^, the previous commit of this lineage; $said. The comparison is therefore narrowed to: the tip commit retro-edited nothing"
           fi
+
+          if [ -n "$pick" ]; then
+            echo "base=$pick" >> "$GITHUB_OUTPUT"
+            echo "append-only baseline: $pick — $why"
+            exit 0
+          fi
+
+          # A SHALLOW checkout counts one commit and is not a first commit. Asking the
+          # question in that order matters: `git rev-list --count HEAD` returns 1 at
+          # fetch-depth 1, so without this the fetch-depth failure mode the guards were
+          # already worried about would be waved through as "nothing published yet".
+          if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
+            echo "::error::no append-only baseline resolves and this checkout is SHALLOW, so nothing here can tell a first commit from an unfetched history. The retro-edit guard cannot run, and a run that cannot enforce the append-only law must not report success (VS-28, VS-36). actions/checkout above needs fetch-depth: 0."
+            exit 1
+          fi
+
+          if [ "$(git rev-list --count HEAD)" = "1" ]; then
+            echo "base=" >> "$GITHUB_OUTPUT"
+            echo "no append-only baseline: HEAD is this repository's first commit, so nothing has been published that could have been retro-edited. The guards will report the skip."
+            exit 0
+          fi
+
+          echo "::error::no append-only baseline resolves in this checkout, and HEAD is not the first commit ($(git rev-list --count HEAD) commits). The retro-edit guard therefore cannot run, and a run that cannot enforce the append-only law must not report success (VS-28, VS-36). Check that actions/checkout above still uses fetch-depth: 0."
+          exit 1
 
       - name: Verify the ledger chain and the append-only law
         # Recomputes every row hash from genesis AND compares against the baseline. Both
         # halves are needed: the chain proves internal consistency, while a rewrite that
         # re-hashes the whole chain is internally perfect and only the baseline sees it.
+        #
+        # An EMPTY value means "no baseline named" and the guard reports an honest skip; a
+        # value that does not resolve now FAILS this step rather than skipping. That is why
+        # the step above picks a revision that exists instead of passing one along and
+        # hoping.
         env:
           PSN_BASE_REF: ${{ steps.baseline.outputs.base }}
         run: npm run verify:ledger
