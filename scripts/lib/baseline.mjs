@@ -223,10 +223,15 @@ export function usableBaseline({ baseline, tree, currentCount, failures, skipNot
       'was named and does not resolve in this checkout, so the retro-edit guard did NOT run. ' +
         'This is a failure and not a skip: naming a baseline is asking for the comparison, and a gate that reports ' +
         'success without doing it is exactly the false green the append-only law cannot survive (VS-28, VS-36). ' +
-        'Either the base commit was never fetched (fetch-depth), or it belongs to a history that has since been ' +
-        'rewritten and no longer exists here — a republished repository gets new shas on every publish, so the ' +
-        'pre-push tip a push event names is routinely gone. Name a revision this checkout HAS (`HEAD^` is one), or ' +
-        'compare against an unpacked published copy with `--base-dir`.'
+        'Nor is it routine: publication into the public repository is INCREMENTAL — translated commits are ' +
+        'appended to the last public tip — so the sha a push event names is normally right here. Two things make ' +
+        'it absent. The base commit was never fetched (fetch-depth), which is a bug in the checkout; or published ' +
+        'history was rewritten, so that sha belongs to a history that no longer exists — an act performed ON the ' +
+        'repository, which explains only the one push immediately after it. Name a revision this checkout ' +
+        'HAS (`HEAD^` is one, and narrows the comparison to "the tip commit retro-edited nothing"), or point ' +
+        '`--base-dir` at a tree obtained independently: a clone of the public mirror at an earlier commit, the ' +
+        'ledger WORM snapshot (FS13-071), or a tree pinned by a signed checkpoint (CERT-032). There are ' +
+        'deliberately no releases or tags to unpack.'
     );
     return null;
   }
