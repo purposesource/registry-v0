@@ -198,8 +198,9 @@ this scaffold had to pick a side of in order to run at all.
 
 1. **Where the v0 ledger and transparency log actually live.** *(Resolved 2026-09-07: the
    website repository is the home of both, with this repository's guard implementation ported
-   there; the `ledger/` and `ct/` trees here are not canonical, receive no rows, and are
-   retired in a later change.)* The architecture places
+   there on 2026-09-08; running the ported ledger guard in the website's CI is a later change
+   and is still open. The `ledger/` and `ct/` trees here are not canonical, receive no rows,
+   and are retired in a later change.)* The architecture places
    both in the `website` repository (`src/data/ledger/{YYYY-MM}.json` and a repo-root
    `ct/` tree). This repository hosts them instead, per its build assignment. Both cannot
    be true. The scripts read their locations from arguments, and nothing hardcodes a path,
@@ -252,8 +253,10 @@ this scaffold had to pick a side of in order to run at all.
    repository was made public before the text was vendored rather than after; the order
    is recorded here rather than tidied away.)*
 8. **Cross-repository triggering.** *(Resolved 2026-09-07: the consumer polls — the
-   website's CI checks this public repository out at `main` on its schedule and deploys when
-   the source digest of its build changed; no token, no App, no dispatch.)* The architecture
+   website's CI checks this public repository out at `main` on its schedule, which it does
+   today, and is to deploy when the source digest of its build changed, which is a later
+   change and is not built at this date; that scheduled run currently proves the build and
+   deploys nothing. Either way: no token, no App, no dispatch.)* The architecture
    has a registry merge fire a
    `repository_dispatch` at the website repository. That needs cross-repository write
    credentials, which the OIDC-only, no-secrets rule forbids. This repository's CI
