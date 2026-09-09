@@ -216,7 +216,6 @@ const EXPECTED_DIVERGENCE = {
       "/manifest must NOT have additional properties {\"additionalProperty\":\"evaluated\"}",
       "/manifest must NOT have additional properties {\"additionalProperty\":\"note\"}",
       "/manifest must have required property 'present' {\"missingProperty\":\"present\"}",
-      "/nodeId must match pattern \"^[A-Za-z0-9_-]{4,128}$\" {\"pattern\":\"^[A-Za-z0-9_-]{4,128}$\"}",
       "/owner must be object {\"type\":\"object\"}",
       "/waivers must be object {\"type\":\"object\"}",
     ],
@@ -227,7 +226,6 @@ const EXPECTED_DIVERGENCE = {
     "waiver.v1": [
       "(root) must NOT have additional properties {\"additionalProperty\":\"count\"}",
       "(root) must NOT have additional properties {\"additionalProperty\":\"note\"}",
-      "/nodeId must match pattern \"^[A-Za-z0-9_-]{4,128}$\" {\"pattern\":\"^[A-Za-z0-9_-]{4,128}$\"}",
     ],
   },
 };
