@@ -27,6 +27,9 @@ scripts/        the generator, the append tool, and the gates
 tests/          the gate tests and their fixtures
 ```
 
+`ledger/` and `ct/` are kept for history and are not the canonical tables: both live in the website
+repository, they receive no rows here, and a later change retires them (see decision 1).
+
 ## What is NOT in here, and where it lives instead
 
 | Not here | Because | Where |
@@ -193,7 +196,10 @@ the way to change them. Change the published contract, then copy it back byte fo
 These are recorded rather than silently resolved. Each one is a real fork in the road that
 this scaffold had to pick a side of in order to run at all.
 
-1. **Where the v0 ledger and transparency log actually live.** The architecture places
+1. **Where the v0 ledger and transparency log actually live.** *(Resolved 2026-09-07: the
+   website repository is the home of both, with this repository's guard implementation ported
+   there; the `ledger/` and `ct/` trees here are not canonical, receive no rows, and are
+   retired in a later change.)* The architecture places
    both in the `website` repository (`src/data/ledger/{YYYY-MM}.json` and a repo-root
    `ct/` tree). This repository hosts them instead, per its build assignment. Both cannot
    be true. The scripts read their locations from arguments, and nothing hardcodes a path,
@@ -245,7 +251,10 @@ this scaffold had to pick a side of in order to run at all.
    repository's own scope note and a rule that says where the vendored text begins. The
    repository was made public before the text was vendored rather than after; the order
    is recorded here rather than tidied away.)*
-8. **Cross-repository triggering.** The architecture has a registry merge fire a
+8. **Cross-repository triggering.** *(Resolved 2026-09-07: the consumer polls — the
+   website's CI checks this public repository out at `main` on its schedule and deploys when
+   the source digest of its build changed; no token, no App, no dispatch.)* The architecture
+   has a registry merge fire a
    `repository_dispatch` at the website repository. That needs cross-repository write
    credentials, which the OIDC-only, no-secrets rule forbids. This repository's CI
    therefore only validates and gates: it holds no token and writes nothing. Someone must
