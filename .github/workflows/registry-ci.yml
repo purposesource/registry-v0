@@ -106,6 +106,15 @@ jobs:
           exit "$fail"
 
       # ---------------------------------------------------------------- copy law
+      - name: Nothing from the private recording store is in this repository (VS-35)
+        # The private store holds rail transaction exports, attestations and
+        # sanctions-screening results, classified P2/P3 and retained ten years, and its
+        # requirement is that it never reaches a public repository. This one is public, and
+        # it is the repository where a file of records would look least out of place — its
+        # whole job is committed data. What it commits is P0-public by construction; this
+        # gate is what keeps that sentence true. `npm test` runs it first.
+        run: npm run check:no-records
+
       - name: Copy law (banned terms)
         # Narrow by design: a grep cannot tell a permitted MENTION of open source from a
         # forbidden self-description (MARKETING §1 rule 2), so this gate bans only the
