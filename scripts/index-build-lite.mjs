@@ -52,7 +52,7 @@
 // schema already carries it as a field description — restating it in the bytes made every
 // artifact fail the contract it claims to implement.
 
-import { rmSync } from 'node:fs';
+import { existsSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import {
@@ -210,10 +210,13 @@ emit('registry/index/meta.json', {
     url: `${cfg.apiOrigin}/v1/registry/index/${s}.json`,
     count: shardMembers.get(s).length,
   })),
-  // The bulk export, at the address THIS producer emits it under: FS10-060 gives the
-  // document two, `/v1/registry/export.json` and the apex alias `/registry.json`, and the
-  // file below is written at `registry.json`. One document, named where it is written.
-  exportUrl: `${cfg.apiOrigin}/registry.json`,
+  // The bulk export on the API origin. FS10-060 gives the one document two published
+  // addresses — `/v1/registry/export.json` on the API origin, and the alias
+  // `/registry.json` mounted on the APEX of the site domain — and this member names the
+  // API one, the same `/v1/` grammar as `shards[].url` above. The plane-local file below
+  // is written at `registry.json` because that is where the deploying step picks it up;
+  // an emit path is not a URL, and `apiOrigin` serves nothing at that name.
+  exportUrl: `${cfg.apiOrigin}/v1/registry/export.json`,
   totals: {
     listed: listed.length,
     verified: stateCount('verified'),
@@ -254,12 +257,12 @@ for (const e of listed) {
     defaultBranch: e.default_branch,
     state: e.state,
     ...(typeof e.state_note === 'string' ? { stateNote: e.state_note } : {}),
-    // No `stateChangedAt`. The published record contract has no state-change date and is
-    // `additionalProperties: false`, so no curated record can carry one; the nearest date
-    // it does carry is `curation.recorded_at`, which is when the OPERATOR wrote the record
-    // down and not when the repository's state changed. Publishing the one as the other
-    // would be an invented fact, so the member is absent and the page says the date is not
-    // recorded.
+    // No `stateChangedAt`. The published record contract DOES define the member — a
+    // producer with a real state-change date belongs there — but this one has no such date
+    // to put in it: the curated record contract has none. The nearest date it does carry is
+    // `curation.recorded_at`, which is when the OPERATOR wrote the record down and not when
+    // the repository's state changed. Publishing the one as the other would be an invented
+    // fact, so the member is absent and the page says the date is not recorded.
     weightClass: e.weight_class,
     license: {
       id: e.license.id,
@@ -439,6 +442,11 @@ const isPreLaunch = state === 'pre-launch';
 // data by declaration (`source: "sample"` above) and is never publishable, which is what
 // makes a fictional date honest there and dishonest here.
 const statsConfigPath = args['stats-config'] ? resolve(ROOT, args['stats-config']) : null;
+if (statsConfigPath && !existsSync(statsConfigPath)) {
+  // Named, like every other failure here: a mistyped path must not surface as a bare
+  // ENOENT stack from the reader, which reads like a broken build rather than a wrong flag.
+  die(`stats.config-not-found: --stats-config ${args['stats-config']} does not exist.`);
+}
 const statsOverrides = statsConfigPath ? readJsonFile(statsConfigPath) : null;
 const firstDisbursementScheduledFor = statsOverrides
   ? statsOverrides.firstDisbursementScheduledFor ?? null
@@ -449,7 +457,11 @@ if (state === 'launched-pre-disbursement' && firstDisbursementScheduledFor === n
     'stats.first-disbursement-date-missing: this build derives state ' +
       '`launched-pre-disbursement` from the registry, and stats.v1 requires ' +
       '`firstDisbursementScheduledFor` to name a date in that state. It is null in ' +
-      `${statsConfigPath ? args['stats-config'] : 'config/publish.json'} (stats.firstDisbursementScheduledFor). ` +
+      // The member sits at the root of a --stats-config file and under `stats` in
+      // config/publish.json, so the path named here follows the file being read.
+      `${statsConfigPath
+        ? `${args['stats-config']} (firstDisbursementScheduledFor)`
+        : 'config/publish.json (stats.firstDisbursementScheduledFor)'}. ` +
       'Record the real date there — it is set by hand when one exists and is never ' +
       'guessed — and re-run. No stats.json is written: an artifact the published contract ' +
       'forbids must not exist, and a date nobody decided is not a way to satisfy it.'

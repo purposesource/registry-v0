@@ -266,7 +266,10 @@ test('the record and the index carry the published member names, and nothing bes
   const meta = readOut(out, 'registry/index/meta.json');
   assert.deepEqual(meta.shards.map((s) => s.shard), ['0', 'a', 'c', 'd']);
   assert.equal(meta.shards[1].url, 'https://api.purposesource.org/v1/registry/index/a.json');
-  assert.equal(meta.exportUrl, 'https://api.purposesource.org/registry.json');
+  // The export's API address, not the plane-local file name and not the apex alias: the
+  // alias `/registry.json` is mounted on the site domain, so naming it here on the API
+  // origin would send a client that follows this member to an address nothing serves.
+  assert.equal(meta.exportUrl, 'https://api.purposesource.org/v1/registry/export.json');
   // All three neutral states, not just `delisted` — a stale cached badge must never keep
   // asserting registration for a suspended repository either (FS10-032, WEB-085).
   assert.deepEqual(meta.delisted.sort(), ['R_kgDOFIXTUREC003', 'R_kgDOFIXTURED004', 'R_kgDOFIXTUREE005']);

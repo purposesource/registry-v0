@@ -124,6 +124,11 @@ contract: a shape a schema does not admit is a defect here. So, in the emitted p
   four listed states and `detected`) and `delisted[]` — every listed repository whose state
   is `suspended`, `quit` or `delisted`, which is the badge route's guard against a stale
   cached badge (FS10-032). All three states render neutral, so the set covers all three.
+  The URLs in it are the **published** ones, which are not the paths in the table above:
+  `exportUrl` is the export's API address, `/v1/registry/export.json`, while the alias
+  `/registry.json` that FS10-060 also gives that document is mounted on the site apex. This
+  build writes the file at `registry.json` because that is where the deploying step reads
+  it; an emit path is not an address anyone serves.
 - A **record** has `owner: {login}`, licence dates under their `…At` names, `links`,
   `waivers: {count, url}` and `badge: {url, state}`. It has **no `manifest` block**: v0 never
   parses `PURPOSE.yml`, and `present: false` would report on a file this build never looked
