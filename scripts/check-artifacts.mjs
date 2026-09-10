@@ -230,17 +230,27 @@ for (const p of actual) {
     // {ORG}/website on 2026-09-09, so a `ct/` path now fails the grammar above before
     // reaching this loop, and the branch is not kept here as one that can never be taken.
     //
-    // WHAT WAS LOST WITH IT, STATED PLAINLY. This file used to assert the positive rule — a
-    // CT segment that CARRIES a `generatedAt` fails — and **nothing asserts it today.** Over
-    // the canonical log, `scripts/ct-verify.mjs` there checks append-only against a base
-    // revision, segment size, the `prevSegmentSha256` chain, sequence contiguity, hash
-    // well-formedness and the no-personal-data scan; `scripts/check-artifacts-schema.mjs`
-    // there validates the published `ct-segment.v1` contract, which does not forbid the key.
-    // So a regeneration timestamp smuggled into a segment would break the segment chain for
-    // every mirror and no gate would name the cause. That gap is real, it is the website's to
-    // close, and it is recorded as its own follow-up rather than implied to be handled: a
-    // pointer to a guard nobody wrote is worse than no pointer, which is the whole reason
-    // this paragraph is longer than the sentence it replaced.
+    // WHERE THAT RULE WENT. This file used to assert the positive rule — a CT segment that
+    // CARRIES a `generatedAt` fails. Over the canonical log it now lives in {ORG}/website's
+    // `scripts/check-artifacts-schema.mjs`, as a path-keyed carriage pass beside that gate's
+    // schema validation and wired into its `postbuild`: no `generatedAt` on `ct/{n}.json`,
+    // one REQUIRED on the open `ct/latest.json`. It judges the emitted plane, and because
+    // that builder copies each committed segment body into the plane verbatim, a timestamp
+    // smuggled into the committed log is caught there too. The rest of the division of labour
+    // is unchanged: `scripts/ct-verify.mjs` there covers append-only against a base revision,
+    // segment size, the `prevSegmentSha256` chain, sequence contiguity, hash well-formedness
+    // and the no-personal-data scan.
+    //
+    // IT HAD TO BE SPLIT IN TWO — the reason this says "moved" and not "ported". The rule
+    // here was keyed on `ct/`, so it forbade the member on `latest.json` as well. Nothing
+    // contradicted that over THIS plane, whose `latest.json` was a byte copy of a segment
+    // carrying no timestamp; over the canonical plane the open head deliberately DOES carry
+    // one (FS-00 §6.2, note of 2026-09-01), so the blanket form would have failed a correct
+    // artifact. And it has to be a gate rather than a schema rule: one `ct-segment.v1` serves
+    // both paths, so the contract types the member optional and cannot forbid it anywhere.
+    // A pointer to a guard nobody wrote is worse than no pointer — and so is a note saying
+    // nothing guards a rule that something now does, which is why this paragraph moved with
+    // the rule instead of being left to age.
     if (parsed.schemaVersion === undefined) {
       failures.add(`${args.dir}/${p}`, 'has no `schemaVersion` (FS-00 §6.2 requires it on every artifact).');
     }
