@@ -28,7 +28,11 @@ is frozen and archived with a pointer to the export endpoints.
 
 ```
 registry/       one YAML file per participating repository, PR-curated
-schema/         the JSON Schema that tree is validated against (the vendored record contract)
+schema/         the JSON Schema that tree is validated against — exactly one file since
+                2026-09-09, the vendored record contract. The two v0 committed-table shapes
+                that lived here, `ledger-month.v1.json` and `ct-segment.v1.json`, were never
+                published contracts and were deleted with the trees they validated; the
+                contract set's `ct-segment.v1` is the authority for the log's shape now.
 config/         publication constants (org, hosts, badge text) and the category menu
 scripts/        the generator and the gates
 tests/          the gate tests and their fixtures
@@ -66,7 +70,7 @@ npm run validate            # every registry entry
 npm run build               # emit this repository's artifacts into dist/
 npm run check:artifacts     # independently verify what was emitted
 npm run check:schema        # ...and check it against the schemas {ORG}/spec publishes
-npm run build:demo          # the same build over the seeded examples
+npm run build:demo          # the same build over the seeded examples, with a fixture date
 ```
 
 `npm run verify:ledger` and `npm run verify:ct` are **not here** — they retired with the
@@ -93,19 +97,56 @@ or used. Working on this repository alone? Clone `spec` beside it.
 Exactly this, and nothing else:
 
 ```
-/registry/index/meta.json          shard list + counts (including states not listed)
+/registry/index/meta.json          shard list (with URLs) + registry-wide totals
 /registry/index/{a-z|0}.json       index shards, keyed by first letter of the repo name
 /registry/repo/{node_id}.json      one record per listed repository
-/registry.json                     bulk export
+/registry.json                     bulk export — a shard document with `shard: "export"`
 /badge/{node_id}.json              shields.io endpoint body
-/waivers/{node_id}.json            per-repository waiver record (empty, with the reason)
-/waivers/all.json                  the waiver registry (empty, with the reason)
+/waivers/{node_id}.json            per-repository waiver record (the honest empty state)
+/waivers/all.json                  the waiver registry (the honest empty state)
 /stats.json                        public counters, honest three-state machine
 /meta/publish-log.json             what this build read and wrote
 ```
 
 The path set is a **closed catalog**. `scripts/check-artifacts.mjs` refuses any file
 outside it: adding a public URL is a specification amendment, not a build change.
+
+**The BYTES at those paths are `{ORG}/spec`'s shapes, not this build's** (2026-09-08). The
+FS-00 §6.2 amendment note of that date makes the published schemas the profile of the frozen
+contract: a shape a schema does not admit is a defect here. So, in the emitted plane:
+
+- An **index entry** is `{nodeId, owner, name, state, weightClass, licenseId, licenseVersion,
+  adoptedAt, apacheConversionDate, recordUrl, badgeUrl, pageUrl}` — the minimum a browse page
+  or a scanner needs, with absolute URLs to everything else about the repository. The shards
+  and the bulk export are the SAME document shape; only `shard` differs (`export` on the
+  bulk one), so a consumer reads both with one code path.
+- **Meta** carries `shards[{shard, url, count}]`, `exportUrl`, `totals` (`listed` plus the
+  four listed states and `detected`) and `delisted[]` — every listed repository whose state
+  is `suspended`, `quit` or `delisted`, which is the badge route's guard against a stale
+  cached badge (FS10-032). All three states render neutral, so the set covers all three.
+- A **record** has `owner: {login}`, licence dates under their `…At` names, `links`,
+  `waivers: {count, url}` and `badge: {url, state}`. It has **no `manifest` block**: v0 never
+  parses `PURPOSE.yml`, and `present: false` would report on a file this build never looked
+  for. It has no state-change date either — the curated record contract has none, and
+  `curation.recorded_at` is when the operator wrote the record down, not when the state
+  changed.
+- A **waiver document** is `{schemaVersion, generatedAt, source, scope, nodeId?, waivers: []}`.
+  The empty array is the whole statement, and it means no waiver exists rather than that data
+  is missing. Why none can exist yet: waiver issuance requires the claim flow — a claimed
+  repository administrator issues waivers from the dashboard (D14) — and a waiver can never
+  be added by a pull request to the registry, because the record schema has no field for one
+  (FS02-060). That sentence used to be a `note` inside the artifacts; it is prose for a
+  reader, so it lives here and on the page.
+- Every artifact except the badge carries **`source`** — `registry-v0` on the publishable
+  plane, `sample` on the demo plane, which is what a `prod` deployment refuses to serve
+  (FS-10 §2 v0 note). The badge cannot carry it (shields.io owns that body) and borrows the
+  plane's declaration from `/registry/index/meta.json`.
+
+Two sentences left the artifacts because the published schemas already carry them as field
+descriptions, and both files are `additionalProperties: false` — restating them made every
+emitted document fail the contract it implements. They were meta's `notes[]` (detected
+repositories are counted and listed nowhere; a shard key is the lowercased first character of
+the name, `0` for the rest) and, earlier, `stats.json`'s.
 
 The FS-00 §6.2 catalog is larger than this list, and that is the point. `/ledger/{YYYY-MM}.json`
 and its `.csv` twin, `/ledger/chain.json`, `/ct/{n}.json`, `/ct/latest.json`, the certificate
@@ -122,20 +163,38 @@ first flip is decided here — `pre-launch` while nothing is registered — and 
 producer cannot see it", where a `0` would assert that no company is covered and no franc has
 moved. `scripts/check-artifacts.mjs` fails the build if either carries a figure.
 
+**A build that would publish `launched-pre-disbursement` with no first-disbursement date
+FAILS** (`stats.first-disbursement-date-missing`). `stats.v1` requires that state to name
+`firstDisbursementScheduledFor`, so the empty money figure has a date attached instead of a
+shrug; `config/publish.json` holds `null` and says the date is set by hand when a real one
+exists and is never guessed. Both rules are right, and together they leave the build no way
+to satisfy the contract except by inventing a date — so it refuses, names the error and names
+the file where a real date is recorded, and writes no `stats.json`. An artifact the published
+contract forbids must not exist, not even in a directory nobody has published yet.
+
+The demo plane is the one place a date is invented, and it says so: `npm run build:demo`
+passes `--stats-config tests/fixtures/publish-stats.json`, a clearly-labelled fixture whose
+own comment says the date is fictional. That plane declares `source: "sample"`, is never
+publishable, and exists so every artifact shape this producer emits is exercised on every
+run. No publishable path reads that file.
+
 `scripts/check-artifacts-schema.mjs` holds the other end of the same rule, one level down:
 the catalog says which PATHS may exist, and the schemas say what the BYTES at them must
 look like. It maps every emitted path to its schema in `{ORG}/spec` and reports the file
-plus a JSON pointer for every violation. Several classes do not match today, and not
-because of a stray key — the emitted shape and the published schema are two different
-contracts (`registry.json`'s flat export; `owner` as a string where the schema wants an
-object). Reconciling those
-re-specifies a frozen contract, which is a specification amendment and not a build change
-either. Until that decision exists, `EXPECTED_DIVERGENCE` in that script records each
-class's exact violation signatures per output directory, prints them on every run, and the
-gate fails on three things: a signature that is not recorded, an artifact no schema is
-mapped to, and a recorded class that has quietly become clean while its entry survives.
-The last one matters most — it is what stops the list turning into an exemption nobody
-granted.
+plus a JSON pointer for every violation.
+
+**Both planes are fully enforced** (2026-09-10). Every class either plane emits validates
+against its published schema, on `dist` and on `dist-demo`, and `EXPECTED_DIVERGENCE` — the
+list of what is not yet enforced — is empty in both. It was not always: several classes were
+a different contract from the schema rather than a stray key, and reconciling them waited on
+a decision about which side moves. That decision is the FS-00 §6.2 amendment note of
+2026-09-08 — the published schemas are the profile of the frozen contract — and the plane was
+conformed to it. The empty block STAYS, because a ratchet with nothing on it is the one that
+catches the next drift: the gate fails on a signature that is not recorded, on an artifact no
+schema is mapped to, and on a recorded class that has quietly become clean while its entry
+survives. Putting a line back is a deliberate act and needs a dated note beside it saying
+which decision admits it and when it retires — otherwise the list turns into an exemption
+nobody granted.
 
 ### The four things the gate asserts, and why each one earns its keep
 
@@ -239,7 +298,14 @@ this scaffold had to pick a side of in order to run at all.
    retired with the CT log, and the tokens are settled where the log is — against the
    published `ct-segment.v1` in the contract set, which is what the `website` guard
    validates segments with. Kept here because the question was recorded here, and a closed
-   row deleted is a decision nobody can find.)*
+   row deleted is a decision nobody can find.)* **SETTLED 2026-09-08, and settled the way
+   this row proposed:** the published `ct-segment.v1` widened its `typ` enum to carry
+   `entitlement-record` and `ct-checkpoint` beside the five frozen certificate types, and
+   described the member as the JWS family. Both tokens are the ones written here, so no
+   segment anywhere has to be re-typed. Nothing in this repository changes with it — the
+   file that would have changed, `schema/ct-segment.v1.json`, was deleted with the CT log on
+   2026-09-09 and is not in this tree; there is no retired copy of it, or of
+   `schema/ledger-month.v1.json`, left behind to be mistaken for a contract.
 5. **The GitHub org name.** `purposesource` is proposed and pending confirmation. It lives
    only in `config/publish.json`; a rename is a one-file diff. *(Closed 2026-09-08: the
    organisation exists and the name is confirmed. It still lives only in

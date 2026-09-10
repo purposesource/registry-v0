@@ -4,6 +4,7 @@
 //
 //   node scripts/index-build-lite.mjs [--out dist] [--include-examples]
 //                                     [--registry-dir registry]
+//                                     [--stats-config tests/fixtures/publish-stats.json]
 //
 // WHAT IT IS. FS-00 §6.10 makes P-M2 deliberately serverless-static: no `pg`, no `api`,
 // no `jobs.index-build`. This script is the stand-in — it reads the committed registry in
@@ -40,6 +41,16 @@
 // EXAMPLES ARE NEVER PUBLISHED. Entries marked `example: true` are excluded unless
 // --include-examples is passed, which no publishing path passes. scripts/check-artifacts.mjs
 // fails the build if an example identifier appears anywhere in the default output.
+//
+// THE PUBLISHED SHAPES ARE {ORG}/spec's, NOT THIS FILE'S (2026-09-08). FS-00 §6.2's
+// amendment note of that date makes the schemas published in the contract repository the
+// profile of the frozen contract: a shape a schema does not admit is a defect HERE, and
+// scripts/check-artifacts-schema.mjs is the gate that says so. Every object below is built
+// to `registry-index.v1`, `registry-index-meta.v1`, `repo-record.v1`, `waiver.v1`,
+// `badge.v1` and `stats.v1` as published, which is why several members read as renames of
+// what this build used to emit. Where a sentence left an artifact, it left because the
+// schema already carries it as a field description — restating it in the bytes made every
+// artifact fail the contract it claims to implement.
 
 import { rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -51,6 +62,7 @@ import {
   generatedAt,
   noteLine,
   parseArgs,
+  readJsonFile,
   writeArtifact,
 } from './lib/repo.mjs';
 import {
@@ -68,14 +80,27 @@ import {
 
 const args = parseArgs(process.argv.slice(2), {
   flags: ['include-examples'],
-  values: ['out', 'registry-dir'],
-  defaults: { out: 'dist', 'registry-dir': null },
+  values: ['out', 'registry-dir', 'stats-config'],
+  defaults: { out: 'dist', 'registry-dir': null, 'stats-config': null },
 });
 
 const cfg = config();
 const now = generatedAt();
 const OUT = resolve(ROOT, args.out);
 const SV = cfg.artifactSchemaVersions;
+
+// WHICH PLANE PRODUCED THESE BYTES (FS-00 §6.2 amendment note, 2026-09-08). `source` is an
+// optional envelope member on every artifact schema this build emits except the badge,
+// whose body shields.io owns; the badge borrows the plane's declaration from
+// `/registry/index/meta.json`, so that document carrying the member is what makes the
+// borrowing work at all. `sample` and `fixture` name a NON-PRODUCTION plane and a `prod`
+// deployment refuses to serve one outright (FS-10 §2 v0 note).
+//
+// The value is a fact about the BUILD and not a name for the output directory: what makes
+// a plane unpublishable is that it carries the seeded demonstration entries, so
+// `--include-examples` is what decides it. `registry-v0` is the enum's name for this
+// producer — the curated registry repository the index is built from.
+const SOURCE = args['include-examples'] ? 'sample' : 'registry-v0';
 
 if (OUT === ROOT) die('--out must be a subdirectory, not the repository root.');
 rmSync(OUT, { recursive: true, force: true });
@@ -106,15 +131,48 @@ function emit(relPath, value) {
 const listed = entries.filter((e) => PUBLISHED_STATES.includes(e.state));
 const detected = entries.filter((e) => e.state === 'detected');
 
-function indexRow(e) {
+/** The absolute URL of a repository's public page on the site (WEB-080). */
+function pageUrl(nodeId) {
+  return `${cfg.siteOrigin}/registry/repo/${nodeId}`;
+}
+
+/** The absolute URL of a repository's record artifact, as the edge serves it (FS10-060). */
+function recordUrl(nodeId) {
+  return `${cfg.apiOrigin}/v1/registry/repo/${nodeId}.json`;
+}
+
+/** The absolute URL of a repository's shields.io endpoint body (FS10-030). */
+function badgeUrl(nodeId) {
+  return `${cfg.apiOrigin}/badge/${nodeId}.json`;
+}
+
+/**
+ * One `registry-index.v1` entry — the same shape in a shard and in the bulk export, which
+ * is why one function builds both (the export is a shard document with `shard: "export"`).
+ *
+ * The entry is the minimum a browse page or a scanner needs; everything else about a
+ * repository lives in the record its `recordUrl` names. So `defaultBranch`, `inboundFamily`
+ * and `repoUrl` are NOT here: the first is a member of the RECORD and the third is
+ * `links.repository` there, and `inboundFamily` has no member in the contract at all.
+ * `adopted` is `adoptedAt`,
+ * whose own description makes it the key the browse view's "recently registered" ordering
+ * reads (WEB-073), and `licenseVersion` carries `license.version` beside `licenseId` for
+ * `license.id` — one name per fact.
+ */
+function indexEntry(e) {
   return {
     nodeId: e.node_id,
     owner: e.owner,
     name: e.name,
     state: e.state,
-    licenseVersion: e.license.version,
-    adopted: e.license.adopted,
     weightClass: e.weight_class,
+    licenseId: e.license.id,
+    licenseVersion: e.license.version,
+    adoptedAt: e.license.adopted,
+    apacheConversionDate: conversionDate(e.license.published, cfg.apacheConversionYears),
+    recordUrl: recordUrl(e.node_id),
+    badgeUrl: badgeUrl(e.node_id),
+    pageUrl: pageUrl(e.node_id),
   };
 }
 
@@ -132,33 +190,50 @@ for (const shard of shardsPresent) {
   emit(`registry/index/${shard}.json`, {
     schemaVersion: SV.registryIndexShard,
     generatedAt: now,
+    source: SOURCE,
     shard,
     count: rows.length,
-    repos: rows.map(indexRow),
+    entries: rows.map(indexEntry),
   });
 }
 
-const stateCounts = {};
-for (const s of ['detected', 'verified', 'suspended', 'quit', 'delisted']) {
-  stateCounts[s] = entries.filter((e) => e.state === s).length;
-}
+const stateCount = (s) => entries.filter((e) => e.state === s).length;
 
 emit('registry/index/meta.json', {
   schemaVersion: SV.registryIndexMeta,
   generatedAt: now,
-  shardOn: 'name',
-  shards: shardsPresent.map((s) => ({ shard: s, count: shardMembers.get(s).length })),
-  counts: {
+  source: SOURCE,
+  // Each shard with its absolute URL, so a browse client fetches the shards it needs
+  // without knowing this producer's directory layout.
+  shards: shardsPresent.map((s) => ({
+    shard: s,
+    url: `${cfg.apiOrigin}/v1/registry/index/${s}.json`,
+    count: shardMembers.get(s).length,
+  })),
+  // The bulk export, at the address THIS producer emits it under: FS10-060 gives the
+  // document two, `/v1/registry/export.json` and the apex alias `/registry.json`, and the
+  // file below is written at `registry.json`. One document, named where it is written.
+  exportUrl: `${cfg.apiOrigin}/registry.json`,
+  totals: {
     listed: listed.length,
-    detectedNotListed: detected.length,
-    byState: stateCounts,
+    verified: stateCount('verified'),
+    suspended: stateCount('suspended'),
+    quit: stateCount('quit'),
+    delisted: stateCount('delisted'),
+    detected: detected.length,
   },
-  // Stated in the artifact rather than only in prose, so a machine consumer knows the
-  // omission is by design and not an incomplete build.
-  notes: [
-    'Repositories in state `detected` are counted here and appear in no shard, no repo record, and no badge (GH-014).',
-    'Shards are keyed by the first letter of the repository name, lowercased; names not starting a-z fall in shard `0`.',
-  ],
+  // The badge route's belt-and-braces guard (FS10-032): every listed repository whose state
+  // is not `verified` serves the neutral badge even if a cached artifact still says
+  // otherwise. All three states render neutral (WEB-085), so the set covers all three — the
+  // member keeps the name a reader recognises.
+  delisted: listed.filter((e) => NEUTRAL_BADGE_STATES.includes(e.state)).map((e) => e.node_id),
+  // No `shardOn`, no `notes`. The two sentences this document used to carry — that
+  // `detected` repositories are counted here and listed nowhere, and that a shard key is
+  // the lowercased first character of the name with `0` for the rest — are the published
+  // schema's own descriptions of `totals.detected` and `shards[].shard`. `registry-index-meta.v1`
+  // is `additionalProperties: false`, so restating them made every emitted meta.json fail
+  // the contract it implements: a worse trade than trusting the schema to carry its own
+  // reasoning.
 });
 
 // =============================================================== per-repo record + badge
@@ -169,44 +244,64 @@ for (const e of listed) {
   emit(`registry/repo/${e.node_id}.json`, {
     schemaVersion: SV.registryRepo,
     generatedAt: now,
+    source: SOURCE,
     nodeId: e.node_id,
-    owner: e.owner,
+    // An object, not a login string: the contract keeps room for the owner organisation's
+    // node id and account type, and this producer has neither. `{ login }` alone is the
+    // whole honest answer — the curated record carries a display login and nothing more.
+    owner: { login: e.owner },
     name: e.name,
-    repoUrl: `https://github.com/${e.owner}/${e.name}`,
     defaultBranch: e.default_branch,
     state: e.state,
     ...(typeof e.state_note === 'string' ? { stateNote: e.state_note } : {}),
+    // No `stateChangedAt`. The published record contract has no state-change date and is
+    // `additionalProperties: false`, so no curated record can carry one; the nearest date
+    // it does carry is `curation.recorded_at`, which is when the OPERATOR wrote the record
+    // down and not when the repository's state changed. Publishing the one as the other
+    // would be an invented fact, so the member is absent and the page says the date is not
+    // recorded.
+    weightClass: e.weight_class,
     license: {
       id: e.license.id,
       version: e.license.version,
-      published: e.license.published,
-      adopted: e.license.adopted,
+      publishedAt: e.license.published,
+      adoptedAt: e.license.adopted,
       textSha256: e.license.text_sha256,
-      // D9: derived from `published`, never stored. The four-year conversion is a promise
+      // D9: derived from `publishedAt`, never stored. The four-year conversion is a promise
       // in the licence text, so the date on the page must be computed from the same
       // anchor the text uses.
       apacheConversionDate: conversionDate(e.license.published, cfg.apacheConversionYears),
       canonicalTextUrl: `${cfg.siteOrigin}/license/${e.license.id}.txt`,
     },
-    weightClass: e.weight_class,
-    inboundFamily: e.inbound_family,
-    impactCategoryDefaults: e.impact_category_defaults || null,
-    // FS02-050/D23: PURPOSE.yml is optional overrides only, and v0 does not parse it. The
-    // honest statement is "not evaluated", not "absent" — this build never looked.
-    manifest: {
-      evaluated: false,
-      note: 'PURPOSE.yml is optional overrides only (D23) and is not parsed at v0; the published defaults apply.',
+    // Absent, never null, when the project chose nothing: "absent means the steward default
+    // applies" is the contract's own reading, and a project that chose nothing is not a
+    // project that chose none (FS02-050 tier 3).
+    ...(Array.isArray(e.impact_category_defaults) && e.impact_category_defaults.length > 0
+      ? { impactCategoryDefaults: e.impact_category_defaults }
+      : {}),
+    // No `manifest` block at all. FS02-050/D23: PURPOSE.yml is optional overrides only and
+    // v0 does not parse it, so this build has nothing to report — and the contract's
+    // `manifest.present` is a boolean about a file somebody LOOKED for. `present: false`
+    // for a file nobody looked for is a false statement; absence is the true one, and the
+    // page prints "manifest status not evaluated at v0".
+    links: {
+      repository: `https://github.com/${e.owner}/${e.name}`,
+      projectPage: pageUrl(e.node_id),
     },
     // FS02-060/D14: there is no waiver field in the registry schema and no waiver can
-    // exist before the claim flow. The empty list is a fact, not a placeholder.
-    waivers: [],
+    // exist before the claim flow. The count is the fact; the URL is where the list lives,
+    // so a reader never has to guess whether zero means "none" or "not published here".
+    waivers: { count: 0, url: `${cfg.apiOrigin}/v1/waivers/${e.node_id}.json` },
     badge: {
-      endpointUrl: `${cfg.apiOrigin}/badge/${e.node_id}.json`,
+      url: badgeUrl(e.node_id),
       state: neutral ? 'neutral' : 'registered',
     },
     // No statistics block. VS-18 is explicit: PP and charity figures are Phase E+, so a
     // zero here would be theatre. The key is absent rather than null for the same reason.
-    verify: cfg.verifyStatement,
+    //
+    // No `verify` statement either: the frozen exclusive-verify wording of FS-00 §6.4 is
+    // the verify PAGE's to make, and the contract has no member for it — a machine record
+    // repeating it on every repository is the same sentence in a place nobody reads it.
   });
 
   emit(
@@ -231,47 +326,50 @@ for (const e of listed) {
 
 // ====================================================================== bulk export
 
+// The same document shape as a shard, holding every listed repository, distinguished only
+// by `shard: "export"` (FS10-060). It is a shard document by contract, so it carries no
+// member a shard does not: one shape, one consumer code path, one thing to keep in step.
+
 emit('registry.json', {
   schemaVersion: SV.registryExport,
   generatedAt: now,
+  source: SOURCE,
+  shard: 'export',
   count: listed.length,
-  repos: listed.map((e) => ({
-    ...indexRow(e),
-    defaultBranch: e.default_branch,
-    inboundFamily: e.inbound_family,
-    repoUrl: `https://github.com/${e.owner}/${e.name}`,
-    apacheConversionDate: conversionDate(e.license.published, cfg.apacheConversionYears),
-    recordUrl: `${cfg.apiOrigin}/v1/registry/repo/${e.node_id}.json`,
-  })),
+  entries: listed.map(indexEntry),
 });
 
 // ========================================================================== waivers
 //
 // The honest empty state (VS-18, FS02-060). Every listed repository gets a waiver file
-// saying, in a machine-readable way, that no waiver exists and why — a 404 would be
+// saying, in a machine-readable way, that no waiver exists — a 404 would be
 // indistinguishable from a broken build, and "no waivers yet" is a fact worth publishing.
-
-const WAIVER_NOTE =
-  'No waivers exist. Waiver issuance requires the Phase E claim flow: a claimed ' +
-  'repository administrator issues waivers from the dashboard (D14), and a waiver can ' +
-  'never be added by a pull request to the registry.';
+//
+// The empty array IS the statement, and `waiver.v1` says so in its own description of the
+// member: "an empty array is a valid and expected state — it means no waiver exists, not
+// that data is missing". The sentence this build used to put in a `note` — why no waiver
+// can exist yet, and why one can never arrive by pull request — is prose for a reader, so
+// it lives in the README's "What the build emits" and on the page, not in bytes the
+// contract forbids. `scope` is what tells the two documents apart: `repo` sets `nodeId`,
+// `all` puts `repoNodeId` on each entry.
 
 for (const e of listed) {
   emit(`waivers/${e.node_id}.json`, {
     schemaVersion: SV.waivers,
     generatedAt: now,
+    source: SOURCE,
+    scope: 'repo',
     nodeId: e.node_id,
     waivers: [],
-    note: WAIVER_NOTE,
   });
 }
 
 emit('waivers/all.json', {
   schemaVersion: SV.waivers,
   generatedAt: now,
-  count: 0,
+  source: SOURCE,
+  scope: 'all',
   waivers: [],
-  note: WAIVER_NOTE,
 });
 
 // ============================================================= ledger and CT: NOT HERE
@@ -321,9 +419,47 @@ const state = listed.length === 0 && detected.length === 0 ? 'pre-launch' : 'lau
 
 const isPreLaunch = state === 'pre-launch';
 
+// THE FIRST-DISBURSEMENT DATE, AND WHY THIS BUILD REFUSES TO GUESS ONE.
+//
+// `stats.v1` requires `firstDisbursementScheduledFor` to name a date whenever `state` is
+// `launched-pre-disbursement` — the empty money figure gets a date attached instead of a
+// shrug. config/publish.json holds `null` and says in its own comment that the date is set
+// by hand when a real one exists and is NEVER guessed. Both rules are right, and together
+// they mean this build must have no way to satisfy the contract by inventing a date.
+//
+// So it fails instead. A guessed date is forbidden by the honesty law, and an artifact the
+// published contract forbids must never be written — including into a directory nobody has
+// published yet, because the file is what a later step publishes. The failure names the
+// error and the one file where a real date is recorded, so the operator is not left
+// reading a schema error to find out what to do.
+//
+// --stats-config points at a JSON file whose `firstDisbursementScheduledFor` is used
+// instead. Only the demo plane passes it (package.json `build:demo`), and only at a
+// clearly-labelled fixture date under tests/fixtures/: the demo plane is demonstration
+// data by declaration (`source: "sample"` above) and is never publishable, which is what
+// makes a fictional date honest there and dishonest here.
+const statsConfigPath = args['stats-config'] ? resolve(ROOT, args['stats-config']) : null;
+const statsOverrides = statsConfigPath ? readJsonFile(statsConfigPath) : null;
+const firstDisbursementScheduledFor = statsOverrides
+  ? statsOverrides.firstDisbursementScheduledFor ?? null
+  : cfg.stats.firstDisbursementScheduledFor;
+
+if (state === 'launched-pre-disbursement' && firstDisbursementScheduledFor === null) {
+  die(
+    'stats.first-disbursement-date-missing: this build derives state ' +
+      '`launched-pre-disbursement` from the registry, and stats.v1 requires ' +
+      '`firstDisbursementScheduledFor` to name a date in that state. It is null in ' +
+      `${statsConfigPath ? args['stats-config'] : 'config/publish.json'} (stats.firstDisbursementScheduledFor). ` +
+      'Record the real date there — it is set by hand when one exists and is never ' +
+      'guessed — and re-run. No stats.json is written: an artifact the published contract ' +
+      'forbids must not exist, and a date nobody decided is not a way to satisfy it.'
+  );
+}
+
 emit('stats.json', {
   schemaVersion: SV.stats,
   generatedAt: now,
+  source: SOURCE,
   state,
   // "Registered" means currently carrying the licence: verified, detected or suspended.
   // A repository that quit or was delisted is not a current registration and is not
@@ -335,7 +471,7 @@ emit('stats.json', {
   companiesCovered: null,
   chfRoutedMinor: null,
   cur: cfg.stats.reportingCurrency,
-  firstDisbursementScheduledFor: cfg.stats.firstDisbursementScheduledFor,
+  firstDisbursementScheduledFor,
   loi: cfg.stats.loi,
   detectedUnclaimed: isPreLaunch ? null : detected.length,
   smallnessThresholds: cfg.stats.smallnessThresholds,

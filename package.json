@@ -11,7 +11,7 @@
   "scripts": {
     "validate": "node scripts/validate-registry.mjs",
     "build": "node scripts/index-build-lite.mjs",
-    "build:demo": "node scripts/index-build-lite.mjs --include-examples --out dist-demo",
+    "build:demo": "node scripts/index-build-lite.mjs --include-examples --out dist-demo --stats-config tests/fixtures/publish-stats.json",
     "check:artifacts": "node scripts/check-artifacts.mjs",
     "check:artifacts:demo": "node scripts/check-artifacts.mjs --dir dist-demo --expect-examples",
     "check:schema": "node scripts/check-artifacts-schema.mjs",

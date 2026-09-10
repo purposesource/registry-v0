@@ -25,19 +25,24 @@
 // the mapping, the ajv settings and the baseline rules are the same by construction, and a
 // change to one belongs in the same commit as the change to the other.
 //
-// THE DIVERGENCE BASELINE
-// Several classes are not merely carrying a stray key: they are a different contract from
-// the schema (`registry.json`'s flat export, `owner` as a string where the schema wants an
-// object).
-// Closing those re-specifies a frozen contract, which changes only by a dated FS-00 §6
-// amendment note — not by a builder patch and not by loosening a published schema. Until
-// that decision exists, `EXPECTED_DIVERGENCE` records the exact violation signatures each
-// class produces today, and the gate FAILS on anything not in the list, FAILS on any
-// recorded SIGNATURE that has stopped occurring (naming the line to delete — per signature
-// and not per class, so a class that fixes all but one of its violations cannot sit green
-// on the rest), and reports what remains. It is the list of what is not yet enforced,
-// printed on every run — not a way to be green. `--baseline` regenerates the block from
-// the current output.
+// THE DIVERGENCE BASELINE — EMPTY SINCE 2026-09-10, AND KEPT
+// `EXPECTED_DIVERGENCE` records the exact violation signatures each class produces, and the
+// gate FAILS on anything not in the list, FAILS on any recorded SIGNATURE that has stopped
+// occurring (naming the line to delete — per signature and not per class, so a class that
+// fixes all but one of its violations cannot sit green on the rest), and reports what
+// remains. It is the list of what is not yet enforced, printed on every run — not a way to
+// be green. `--baseline` regenerates the block from the current output.
+//
+// It is empty by DECISION, not by omission. The question it existed to hold open — which
+// side moves, the emitted plane or the published schema — was answered on 2026-09-08: the
+// schemas published in {ORG}/spec are the profile of the frozen contract, and a shape a
+// schema does not admit is a defect in this builder. Both planes were conformed to it, so
+// every class is enforced and there is nothing left to record.
+//
+// The block stays anyway, because a ratchet with nothing on it is exactly the ratchet that
+// catches the NEXT drift: a new violation is unrecorded, and unrecorded is red. Adding an
+// entry back is therefore a deliberate act and needs a dated note here saying which
+// decision admits it and when it retires — a silent line is an exemption nobody granted.
 
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
@@ -91,81 +96,19 @@ const UNSCHEMATISED = new Map([
 // of this file skips it there, against the JSON it mirrors, because JSON Schema has nothing
 // to say about a CSV.
 
-// Recorded 2026-09-07, narrowed 2026-09-09 when the ledger and CT trees retired. Open
-// question for the operator: which side is authoritative, the emitted plane or the published
-// schema? Read the header before touching this.
-//
 // KEYED BY OUTPUT DIRECTORY, and it has to be. `dist` and `dist-demo` are different data:
 // the demo plane carries the examples, so it exercises classes the publishable plane has
 // none of, and a class can be clean in one and divergent in the other. One merged list would
 // make every `dist` run trip the "this class is clean now" rule below and let every
-// `dist-demo` run hide behind the other plane's debt.
-//
-// One entry below is a FIXTURE gap rather than a contract divergence, and is marked as
-// such: `dist-demo`'s stats.json derives `launched-pre-disbursement` from the seeded example
-// entries, and stats.v1 requires that state to name `firstDisbursementScheduledFor` so the
-// empty money figure has a date attached instead of a shrug. config/publish.json holds
-// null and says why in its own comment — the date is set by hand when a real one exists and
-// is NEVER guessed. So the demo plane cannot satisfy the rule without inventing a date,
-// which the honesty law forbids. The publishable `dist` plane is `pre-launch` and clean.
+// `dist-demo` run hide behind the other plane's debt. Both are present and both are empty:
+// a MISSING key is a hard failure ("no divergence baseline recorded for --dir ..."), so a
+// plane can never borrow the other's, and an empty object is what says "measured, nothing
+// diverges" rather than "nobody looked".
 const EXPECTED_DIVERGENCE = {
   /** The publishable plane: registry/ only, no examples. */
-  "dist": {
-    "registry-index-meta.v1": [
-      "(root) must NOT have additional properties {\"additionalProperty\":\"counts\"}",
-      "(root) must NOT have additional properties {\"additionalProperty\":\"notes\"}",
-      "(root) must NOT have additional properties {\"additionalProperty\":\"shardOn\"}",
-      "(root) must have required property 'totals' {\"missingProperty\":\"totals\"}",
-    ],
-    "registry-index.v1": [
-      "(root) must NOT have additional properties {\"additionalProperty\":\"repos\"}",
-      "(root) must have required property 'entries' {\"missingProperty\":\"entries\"}",
-      "(root) must have required property 'shard' {\"missingProperty\":\"shard\"}",
-    ],
-    "waiver.v1": [
-      "(root) must NOT have additional properties {\"additionalProperty\":\"count\"}",
-      "(root) must NOT have additional properties {\"additionalProperty\":\"note\"}",
-    ],
-  },
+  "dist": {},
   /** The demo plane: the seeded examples. Never publishable. */
-  "dist-demo": {
-    "registry-index-meta.v1": [
-      "(root) must NOT have additional properties {\"additionalProperty\":\"counts\"}",
-      "(root) must NOT have additional properties {\"additionalProperty\":\"notes\"}",
-      "(root) must NOT have additional properties {\"additionalProperty\":\"shardOn\"}",
-      "(root) must have required property 'totals' {\"missingProperty\":\"totals\"}",
-      "/shards/[] must have required property 'url' {\"missingProperty\":\"url\"}",
-    ],
-    "registry-index.v1": [
-      "(root) must NOT have additional properties {\"additionalProperty\":\"repos\"}",
-      "(root) must have required property 'entries' {\"missingProperty\":\"entries\"}",
-      "(root) must have required property 'shard' {\"missingProperty\":\"shard\"}",
-    ],
-    "repo-record.v1": [
-      "(root) must NOT have additional properties {\"additionalProperty\":\"inboundFamily\"}",
-      "(root) must NOT have additional properties {\"additionalProperty\":\"repoUrl\"}",
-      "(root) must NOT have additional properties {\"additionalProperty\":\"verify\"}",
-      "/badge must NOT have additional properties {\"additionalProperty\":\"endpointUrl\"}",
-      "/badge must have required property 'url' {\"missingProperty\":\"url\"}",
-      "/impactCategoryDefaults must be array {\"type\":\"array\"}",
-      "/license must NOT have additional properties {\"additionalProperty\":\"adopted\"}",
-      "/license must NOT have additional properties {\"additionalProperty\":\"published\"}",
-      "/license must have required property 'adoptedAt' {\"missingProperty\":\"adoptedAt\"}",
-      "/manifest must NOT have additional properties {\"additionalProperty\":\"evaluated\"}",
-      "/manifest must NOT have additional properties {\"additionalProperty\":\"note\"}",
-      "/manifest must have required property 'present' {\"missingProperty\":\"present\"}",
-      "/owner must be object {\"type\":\"object\"}",
-      "/waivers must be object {\"type\":\"object\"}",
-    ],
-    "stats.v1": [
-      "(root) must match \"then\" schema {\"failingKeyword\":\"then\"}",
-      "/firstDisbursementScheduledFor must be string {\"type\":\"string\"}",
-    ],
-    "waiver.v1": [
-      "(root) must NOT have additional properties {\"additionalProperty\":\"count\"}",
-      "(root) must NOT have additional properties {\"additionalProperty\":\"note\"}",
-    ],
-  },
+  "dist-demo": {},
 };
 
 /* --------------------------------------------------------------------------- schemas */

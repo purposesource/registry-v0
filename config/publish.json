@@ -19,7 +19,14 @@
   "_comment_verify": [
     "FS-00 §6.4 as amended 2026-09-01: the frozen exclusive-verify wording. The human",
     "verify page owns the statement; machine endpoints are documented separately and",
-    "are never printed as the canonical host. Copy this string, never re-word it."
+    "are never printed as the canonical host. Copy this string, never re-word it.",
+    "Dated note, 2026-09-10: NO ARTIFACT CARRIES THIS STRING ANY MORE. Each repo record",
+    "used to repeat it in a `verify` member; `repo-record.v1` has no such member, and the",
+    "sentence is the verify page's to make — a machine record repeating it on every",
+    "repository is the same sentence in a place nobody reads it. The constant stays here",
+    "because this file is where a substitutable name lives and the wording is frozen, so",
+    "the day a surface here needs it there is still exactly one copy to read. Said out",
+    "loud rather than left as a key with no reader."
   ],
   "verifyStatement": "verify only at purposesource.org/verify",
 

@@ -1,0 +1,19 @@
+{
+  "_comment": [
+    "FIXTURE — a date for the demo plane only; the publishable build never reads this file.",
+    "",
+    "The seeded examples make the demo plane derive `launched-pre-disbursement`, and",
+    "stats.v1 requires that state to name `firstDisbursementScheduledFor` so the empty money",
+    "figure has a date attached instead of a shrug. The date below is INVENTED. It is honest",
+    "here and only here: the demo plane declares itself `source: \"sample\"`, is never",
+    "publishable, and exists so every artifact shape this producer emits is exercised on",
+    "every run.",
+    "",
+    "The publishable build reads config/publish.json, where the date is null and is set by",
+    "hand when a real one exists. Reaching `launched-pre-disbursement` there with no recorded",
+    "date FAILS the build (`stats.first-disbursement-date-missing`) rather than falling back",
+    "to anything in this file — a guessed date on a published counter is exactly the claim",
+    "about the world nothing here is entitled to make."
+  ],
+  "firstDisbursementScheduledFor": "2027-03-31"
+}
