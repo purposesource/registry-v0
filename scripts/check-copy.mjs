@@ -37,7 +37,11 @@ import { Failures, ROOT, parseArgs } from './lib/repo.mjs';
 const args = parseArgs(process.argv.slice(2), { flags: [], values: ['probe'], defaults: { probe: null } });
 const failures = new Failures('copy');
 
-const SCAN_DIRS = ['.github', 'config', 'schema', 'scripts', 'registry', 'ledger', 'ct', 'tests'];
+// `ledger` and `ct` left this list on 2026-09-09 with the trees themselves (FS-00 §6.10).
+// A missing directory is skipped silently below, so leaving them would have cost nothing
+// mechanically — and would have said this gate still watches two trees that the website's
+// copy-lint watches now.
+const SCAN_DIRS = ['.github', 'config', 'schema', 'scripts', 'registry', 'tests'];
 const SCAN_FILES = ['README.md', 'CONTRIBUTING.md', 'LICENSE-DATA', 'package.json'];
 // Text this repository ships. LICENSE-DATA has no extension, hence the alternative.
 const SCAN_EXT = /(\.(md|mjs|js|json|yml|yaml|txt)|LICENSE-DATA)$/;

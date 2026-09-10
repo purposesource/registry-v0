@@ -1,14 +1,12 @@
 node_modules/
 
-# Build output of scripts/index-build-lite.mjs. Deliberately NOT committed: the
-# artifact plane is regenerated from registry/ + ledger/ + ct/ on every CI run, and a
-# committed copy could drift from its sources without anything failing.
+# Build output of scripts/index-build-lite.mjs. Deliberately NOT committed: the artifact
+# plane is regenerated from registry/ on every CI run, and a committed copy could drift
+# from its sources without anything failing.
 /dist/
-# The demo build (examples + fixture ledger/CT included). Never publishable.
+# The demo build (seeded examples included). Never publishable.
 /dist-demo/
 
-# Scratch output of the verify scripts' --base-dir mode.
-/.base-snapshot/
 # Where CI checks out the public contract repository to byte-compare the two vendored
 # files (schema/registry-v0-record.v1.json, config/category-funds.json) against their
 # published originals. Nothing in it is ours.

@@ -12,10 +12,13 @@
 //
 // It is also the repository whose whole job is committed data, which is exactly why the
 // distinction has to be mechanical here. What this repository commits is P0-public by
-// construction — registry records, the ledger, the transparency log, whose entries carry a
-// hash, a type code, a kind, a ref and a timestamp and nothing else. The private store is
-// the counterpart that keeps that true. A recording log dropped in beside a ledger month
-// would look, to a tired reviewer, like one more data file.
+// construction — curated registry records, each naming a public repository, a public licence
+// version and public GitHub logins and nothing else. The private store is the counterpart
+// that keeps that true. A recording log dropped in beside a registry entry would look, to a
+// tired reviewer, like one more data file. (Until 2026-09-09 this sentence also named the
+// ledger and the transparency log; both moved to the website with their trees, FS-00 §6.10,
+// and this gate's copy there covers them. The rules below are unchanged and still match a
+// store copied in at ANY depth, including under a directory this repository does not have.)
 //
 // WHAT THIS IS NOT. It is not a content scanner. It matches PATH SHAPES, because that is how
 // the store actually arrives somewhere it should not be — copied in as itself, by an

@@ -206,14 +206,19 @@ const ajvCache = new Map();
 /**
  * A validator for the dialect the schema itself declares.
  *
- * TWO DIALECTS COEXIST HERE, and not by accident. This repository's own artifact schemas
- * (`ct-segment`, `ledger-month`) are draft-07, which is what every OSPO scanner and CI
- * linter already speaks. `registry-v0-record.v1.json` is 2020-12 because it is not this
- * repository's schema at all: it is a byte-identical vendored copy of the published
- * contract, and the contract set is 2020-12 throughout. Ajv's two entry points are
- * separate classes that each know one meta-schema, so the choice is made from the file's
- * own `$schema` rather than guessed — a schema that declares a dialect its validator does
- * not know fails loudly at compile time, which is the outcome we want.
+ * ONE DIALECT IS IN THE TREE TODAY, and the dispatch stays anyway. `schema/` holds exactly
+ * `registry-v0-record.v1.json`, which is 2020-12 because it is not this repository's schema
+ * at all: it is a byte-identical vendored copy of the published contract, and the contract
+ * set is 2020-12 throughout. The two draft-07 schemas this repository did own —
+ * `ct-segment` and `ledger-month` — retired on 2026-09-09 with the trees they validated
+ * (FS-00 §6.10); the published pair in {ORG}/spec is the contract, and the website
+ * validates its ledger and CT artifacts against it.
+ *
+ * The two-dialect dispatch is kept because it is a correctness property and not a headcount:
+ * Ajv's two entry points are separate classes that each know one meta-schema, so the choice
+ * is made from the file's own `$schema` rather than guessed — a schema that declares a
+ * dialect its validator does not know fails loudly at compile time, which is the outcome we
+ * want, and a vendored contract that changes dialect must not be validated by the wrong one.
  */
 function ajv(dialect) {
   if (!ajvCache.has(dialect)) {
@@ -222,10 +227,13 @@ function ajv(dialect) {
       allErrors: true,
       // Report every problem in a file, not just the first — same reason as Failures.
       strict: true,
-      // `strictTypes: false`: several fields are legitimately `["string","null"]` with a
-      // `pattern` that applies only to the string branch (CT `prevSegmentSha256`, `ref`).
-      // Ajv's strictTypes calls that a union-with-constraint and warns; the schema is
-      // valid and the behaviour is the intended one.
+      // `strictTypes: false`: a field is legitimately `["string","null"]` with a `pattern`
+      // that applies only to the string branch. Ajv's strictTypes calls that a
+      // union-with-constraint and warns; the schema is valid and the behaviour is the
+      // intended one. Kept in step with the settings the contract set's own validator uses
+      // (spec/scripts/lib/spec.mjs, mirrored in check-artifacts-schema.mjs), so a vendored
+      // schema is judged here exactly as it is judged where it is published — the examples
+      // this line used to name were the retired CT schema's and are gone with it.
       strictTypes: false,
       // `strictRequired: false`: the record schema states its bans as
       // `not: { required: ["waivers"] }`, which is precisely the point — `waivers` is a

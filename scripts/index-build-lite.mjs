@@ -1,19 +1,30 @@
 #!/usr/bin/env node
-// index-build-lite — the v0 bridge from curated sources to the public artifact plane.
+// index-build-lite — the v0 bridge from the curated registry to its slice of the public
+// artifact plane.
 //
 //   node scripts/index-build-lite.mjs [--out dist] [--include-examples]
 //                                     [--registry-dir registry]
-//                                     [--ledger-dir ledger] [--ct-dir ct]
 //
 // WHAT IT IS. FS-00 §6.10 makes P-M2 deliberately serverless-static: no `pg`, no `api`,
-// no `jobs.index-build`. This script is the stand-in — it reads the committed sources in
-// this repository and emits the FS-00 §6.2 artifacts at EXACTLY the §6.2 paths, so that
-// P-M3's migration to `pg` + `jobs.index-build` changes no URL (FS02-062/FS02-064).
+// no `jobs.index-build`. This script is the stand-in — it reads the committed registry in
+// this repository and emits the FS-00 §6.2 artifacts DERIVABLE FROM IT at EXACTLY the §6.2
+// paths, so that P-M3's migration to `pg` + `jobs.index-build` changes no URL
+// (FS02-062/FS02-064).
+//
+// THE REGISTRY SUBSET, NOT THE WHOLE PLANE (2026-09-09). This repository is canonical for
+// registry YAML only. The ledger, the CT log, the certificate and entitlement records and
+// the artifacts derived from them live in {ORG}/website (FS-00 §6.10, ruling of
+// 2026-09-07), whose own builder emits them from `src/data/ledger/{YYYY-MM}.json` and its
+// repo-root `ct/` tree and validates them against {ORG}/spec. So `/ledger/**`, `/ct/**` and
+// the CSV twin are emitted THERE and no longer here: the trees this build used to read were
+// non-canonical from 2026-09-07, received no row, and retired on 2026-09-09. The published
+// URLs did not move — only the producer did.
 //
 // WHAT IT IS NOT. It is not a publisher. It writes a directory; a deploy publishes it.
-// And it is not a source of facts: every number it emits is derived from registry/,
-// ledger/ or ct/. There is no code path here that can invent a count, a figure, or a
-// state — which is the mechanical form of D21, "nothing claimed before it's real".
+// And it is not a source of facts: every number it emits is derived from registry/. There
+// is no code path here that can invent a count, a figure, or a state — which is the
+// mechanical form of D21, "nothing claimed before it's real". Where the registry cannot
+// know a figure, the figure is `null` and says so, never 0 and never a guess.
 //
 // DETERMINISM (VS-04's reviewable diffs, FS02-084's "ETags change only on changed
 // files"):
@@ -41,7 +52,6 @@ import {
   noteLine,
   parseArgs,
   writeArtifact,
-  writeTextArtifact,
 } from './lib/repo.mjs';
 import {
   ALL_SHARDS,
@@ -55,13 +65,11 @@ import {
   publishable,
   shardOf,
 } from './lib/registry.mjs';
-import { LEDGER_DIR, flatRows, loadLedger, monthDigest } from './lib/ledger.mjs';
-import { CT_DIR, loadCt } from './lib/ct.mjs';
 
 const args = parseArgs(process.argv.slice(2), {
   flags: ['include-examples'],
-  values: ['out', 'registry-dir', 'ledger-dir', 'ct-dir'],
-  defaults: { out: 'dist', 'registry-dir': null, 'ledger-dir': null, 'ct-dir': null },
+  values: ['out', 'registry-dir'],
+  defaults: { out: 'dist', 'registry-dir': null },
 });
 
 const cfg = config();
@@ -72,27 +80,16 @@ const SV = cfg.artifactSchemaVersions;
 if (OUT === ROOT) die('--out must be a subdirectory, not the repository root.');
 rmSync(OUT, { recursive: true, force: true });
 
-const ledgerDir = args['ledger-dir'] ? resolve(ROOT, args['ledger-dir']) : LEDGER_DIR;
-const ctDir = args['ct-dir'] ? resolve(ROOT, args['ct-dir']) : CT_DIR;
-
 const loaded = loadRegistry(args['registry-dir'] ? resolve(ROOT, args['registry-dir']) : REGISTRY_DIR);
 const entries = args['include-examples']
   ? [...publishable(loaded), ...exampleEntries(loaded)].sort(byOwnerName)
   : publishable(loaded).sort(byOwnerName);
-
-const months = loadLedger(ledgerDir);
-const ctSegments = loadCt(ctDir);
 
 /** Relative artifact paths this run wrote, for the manifest check to compare against. */
 const written = [];
 
 function emit(relPath, value) {
   writeArtifact(join(OUT, relPath), value);
-  written.push(relPath);
-}
-
-function emitText(relPath, text) {
-  writeTextArtifact(join(OUT, relPath), text);
   written.push(relPath);
 }
 
@@ -277,169 +274,50 @@ emit('waivers/all.json', {
   note: WAIVER_NOTE,
 });
 
-// =========================================================================== ledger
+// ============================================================= ledger and CT: NOT HERE
 //
-// Month exports, the CSV twin, and the chain. The JSON and the CSV are rendered from ONE
-// row list in one pass, because VS-37 makes divergence between them a defect.
-
-const allRows = flatRows(months);
-const CSV_COLUMNS = [
-  'seq',
-  'led_id',
-  'month',
-  'row_type',
-  'amount_minor',
-  'currency',
-  'src_amount_minor',
-  'src_currency',
-  'fx_rate',
-  'fx_source',
-  'fx_date',
-  'lane',
-  'hold_status',
-  'payer_name',
-  'ent_id',
-  'co_id',
-  'repo_node_id',
-  'category_fund_id',
-  'schedule_version',
-  'corrects_led_id',
-  'external_key',
-  'note',
-  'emitting_job',
-  'created_at',
-  'prev_hash',
-  'row_hash',
-];
-
-function csvCell(v) {
-  if (v === undefined || v === null) return '';
-  const s = String(v);
-  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
-
-const monthSummaries = [];
-
-for (const m of months) {
-  const rows = [...(m.data.rows || [])].sort((a, b) => a.seq - b.seq);
-  const digest = monthDigest(rows);
-  const totals = rows.reduce(
-    (acc, r) => {
-      acc.rows += 1;
-      acc.netMinor += r.amount_minor;
-      return acc;
-    },
-    { rows: 0, netMinor: 0 }
-  );
-
-  emit(`ledger/${m.month}.json`, {
-    schemaVersion: SV.ledgerMonth,
-    generatedAt: now,
-    month: m.month,
-    currency: cfg.stats.reportingCurrency,
-    // No `policy` block and no allocation `totals`: at v0 there is no allocator, so the
-    // charged-to-fees / reserve-retention / hardship-pay / disbursed figures (the four
-    // outgoing lines of D34 item 5) do not exist and are not published as zeros — a zero would
-    // read as a claim that the rule ran. FS07-100 — the export shape is the FS-07 §6.2 shape
-    // minus allocation totals, so public transparency pages have one format forever.
-    totals: { rowCount: totals.rows, netIntakeMinor: totals.netMinor },
-    rows,
-    monthDigest: digest,
-    methodology: [
-      'Append-only: a committed row is never edited or deleted. Corrections are new rows (FS07-042).',
-      'Row hashes chain globally in `seq` order: row_hash = SHA-256(prev_hash || JCS(row minus its two hash fields)), RFC 8785 canonical JSON.',
-      'No allocation row — charged-to-fees, reserve-retention, hardship-pay, or a disburse transfer to a listed recipient — exists before the platform computes one; this table records intake only. When the allocator arrives, a month locks under the lock-before-sweep rule (no later than twenty days after its last rail payout) and each listed recipient is transferred its share directly on or before the thirtieth day (D33 item 4).',
-    ],
-  });
-
-  emitText(
-    `ledger/${m.month}.csv`,
-    `${CSV_COLUMNS.join(',')}\n${rows.map((r) => CSV_COLUMNS.map((c) => csvCell(r[c])).join(',')).join('\n')}${rows.length ? '\n' : ''}`
-  );
-
-  monthSummaries.push({
-    month: m.month,
-    rowCount: rows.length,
-    monthDigest: digest,
-    headHashAtMonthEnd: rows.length ? rows[rows.length - 1].row_hash : null,
-  });
-}
-
-const head = allRows.length ? allRows[allRows.length - 1].row : null;
-
-emit('ledger/chain.json', {
-  schemaVersion: SV.ledgerChain,
-  generatedAt: now,
-  algorithm: 'SHA-256 over prev_hash || RFC-8785-JCS(row minus prev_hash and row_hash)',
-  genesisHash: cfg.ledger.genesisHash,
-  headHash: head ? head.row_hash : cfg.ledger.genesisHash,
-  headSeq: head ? head.seq : 0,
-  rowCount: allRows.length,
-  months: monthSummaries,
-  // FS07-040 publishes the chain head plus every month-LOCK row. There are no locks at
-  // v0 (locking is the allocator's act, FS07-050; under D33 item 4 it happens before the
-  // sweep, no later than twenty days after the month's last rail payout), so this artifact
-  // carries the head plus per-month digests, which is what VS-37 specifies for v0.
-  locks: [],
-  notes: [
-    'Month locks begin at P-M3 with `jobs.allocator`; the `locks` array is empty by design at v0, not by omission.',
-    allRows.length === 0
-      ? 'No money has moved yet: the ledger holds no rows.'
-      : 'Re-walk the chain from genesis to verify: scripts/ledger-verify.mjs does exactly that on every CI run.',
-  ],
-});
-
-// =============================================================================== CT log
-
-for (const s of ctSegments) {
-  // Byte-for-byte passthrough of the shape, re-serialised through writeArtifact so the
-  // published bytes are canonical even if a hand-edited source file was formatted oddly.
-  // The published segment must stay hashable by anyone who mirrors it, so key order is
-  // the source's key order.
-  emit(`ct/${s.segment}.json`, s.data);
-}
-
-if (ctSegments.length) {
-  const open = ctSegments[ctSegments.length - 1];
-  emit('ct/latest.json', open.data);
-} else {
-  die('ct/ holds no segment files. The v0 log is exactly one committed segment, ct/0.json (FS08-113); an absent log cannot be published as an empty one.');
-}
+// Retired 2026-09-09. `/ledger/{YYYY-MM}.json`, its CSV twin, `/ledger/chain.json`,
+// `/ct/{n}.json` and `/ct/latest.json` are emitted by {ORG}/website's builder from
+// `src/data/ledger/{YYYY-MM}.json` and its repo-root `ct/` tree — the canonical homes since
+// FS-00 §6.10's ruling of 2026-09-07. The trees this section used to read were
+// non-canonical from that date and received no row, so nothing was moved on the way out:
+// the honest-empty month and segment 0 already lived there, under the guards ported with
+// them (`website/scripts/{ledger,ct}-verify.mjs`, run by `site-ci` against a resolved
+// append-only baseline). The catalog paths are unchanged — only their producer is.
+//
+// VS-37's rule that a month's CSV and JSON are rendered from ONE row list in one pass
+// travelled with the code and is asserted there (`website/tests/unit/ledger-csv.test.mjs`).
+// It is not restated here as a comment on nothing.
 
 // ================================================================================ stats
 //
 // The three-state machine (FS-10 §10 schema, VS-19 rules). The state is CHOSEN BY REAL
 // DATA and never set by hand:
 //
-//   pre-launch                 no listed repository and no ledger row.
+//   pre-launch                 nothing is registered.
 //   launched-pre-disbursement  something real exists, but no franc has been disbursed.
 //   post-first-franc           a `disburse` row exists in the ledger.
+//
+// DERIVED FROM THE REGISTRY ALONE since 2026-09-09. The ledger this section used to read is
+// the website's (FS-00 §6.10), so the two flips that need a row are not this build's to
+// make: S1 -> S2 is decided here, by whether any repository is registered, and S2 -> S3 is
+// decided by the website's builder, which can see a `disburse` row. Deriving S3 from a
+// registry would mean inferring a payment from a licence adoption, which is exactly the
+// invention the honesty law forbids — so this build cannot emit `post-first-franc`, and
+// check-artifacts.mjs asserts the two money fields stay null to keep it that way.
 //
 // The honesty rules that make this artifact worth publishing:
 //   * At `pre-launch` every numeric field is null, not 0. VS-19: mechanism copy only. A
 //     zero reads as an achievement or an embarrassment; a null reads as "not yet".
 //   * `contributorsClaimed` stays null past pre-launch too. There is no claim flow at v0
 //     (Phase E), so the number is structurally unknowable rather than zero.
-//   * `chfRoutedMinor` stays null until a disbursement exists — never "CHF 0".
-//   * `post-first-franc` is unreachable at v0 by construction, because no allocation row
-//     type is permitted in the v0 ledger. It is implemented anyway so the artifact's
-//     shape is final now and P-M3 flips it with data, not with code.
+//   * `companiesCovered` and `chfRoutedMinor` are null for the same KIND of reason from
+//     2026-09-09: both are counted off ledger rows, and this repository holds none. Null is
+//     the honest reading of "this producer cannot see it" — a 0 here would assert that no
+//     company is covered and no franc has moved, which is a claim about the world that a
+//     registry has no standing to make.
 
-const disburseRows = allRows.filter(({ row }) => row.row_type === 'disburse');
-const intakeRowCount = allRows.length;
-
-let state;
-if (listed.length === 0 && detected.length === 0 && intakeRowCount === 0) {
-  state = 'pre-launch';
-} else if (disburseRows.length === 0) {
-  state = 'launched-pre-disbursement';
-} else {
-  state = 'post-first-franc';
-}
-
-const companiesCovered = new Set(
-  allRows.map(({ row }) => row.co_id).filter((v) => typeof v === 'string')
-).size;
+const state = listed.length === 0 && detected.length === 0 ? 'pre-launch' : 'launched-pre-disbursement';
 
 const isPreLaunch = state === 'pre-launch';
 
@@ -454,14 +332,8 @@ emit('stats.json', {
     ? null
     : entries.filter((e) => ['verified', 'detected', 'suspended'].includes(e.state)).length,
   contributorsClaimed: null,
-  companiesCovered: isPreLaunch ? null : companiesCovered,
-  // Absolute value: FS-07 does not fix the sign convention for `disburse` rows, and this
-  // branch is unreachable at v0 (no allocation row type is permitted in the v0 ledger),
-  // so the figure is derived without depending on a convention P-M3 owns.
-  chfRoutedMinor:
-    state === 'post-first-franc'
-      ? Math.abs(disburseRows.reduce((a, { row }) => a + row.amount_minor, 0))
-      : null,
+  companiesCovered: null,
+  chfRoutedMinor: null,
   cur: cfg.stats.reportingCurrency,
   firstDisbursementScheduledFor: cfg.stats.firstDisbursementScheduledFor,
   loi: cfg.stats.loi,
@@ -494,11 +366,11 @@ emit('meta/publish-log.json', {
       org: cfg.org,
       domain: cfg.domain,
       includedExamples: Boolean(args['include-examples']),
+      // One source since 2026-09-09. The `ledgerMonths` / `ledgerRows` / `ctSegments`
+      // counters this batch used to carry described trees that are no longer read here;
+      // the website's publish log carries them for the plane that does read them.
       sources: {
         registryEntries: entries.length,
-        ledgerMonths: months.length,
-        ledgerRows: allRows.length,
-        ctSegments: ctSegments.length,
       },
       artifactCount: written.length + 1,
     },
@@ -507,7 +379,6 @@ emit('meta/publish-log.json', {
 
 noteLine(
   `index-build-lite -> ${args.out}: ${written.length} artifacts ` +
-    `(${listed.length} listed repos, ${detected.length} detected, ${months.length} ledger months, ` +
-    `${allRows.length} ledger rows, ${ctSegments.length} CT segments), state=${state}, generatedAt=${now}` +
+    `(${listed.length} listed repos, ${detected.length} detected), state=${state}, generatedAt=${now}` +
     (args['include-examples'] ? ' [EXAMPLES INCLUDED — not publishable]' : '')
 );

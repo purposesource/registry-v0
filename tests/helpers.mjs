@@ -28,11 +28,13 @@ export function runScript(script, args = [], env = {}) {
       cwd: REPO,
       encoding: 'utf8',
       // A deterministic child environment. CI and GITHUB_ACTIONS are cleared so a run
-      // under Actions behaves like a run on a laptop; PSN_BASE_REF is cleared because a
-      // workflow value written to $GITHUB_ENV leaks into every later step of the job —
-      // including these tests, four of which assert the guards' OWN no-baseline branch
-      // and cannot assert it while a baseline is inherited. Whatever the caller passes in
-      // `env` still wins, so a test can hand a gate a baseline on purpose.
+      // under Actions behaves like a run on a laptop. PSN_BASE_REF is cleared for the same
+      // reason and now only for that reason: it was the append-only guards' baseline, and
+      // those guards retired with the ledger and CT trees on 2026-09-09 (FS-00 §6.10), so
+      // no script here reads it any more. Kept rather than dropped because the rule is
+      // "this suite does not inherit the ambient environment", and re-earning that the day
+      // a variable matters again is not worth the two words saved. Whatever the caller
+      // passes in `env` still wins.
       env: { ...process.env, GENERATED_AT: NOW, CI: '', GITHUB_ACTIONS: '', PSN_BASE_REF: '', ...env },
       stdio: ['ignore', 'pipe', 'pipe'],
     });

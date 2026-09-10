@@ -3,17 +3,26 @@
 //
 //   node scripts/check-artifacts.mjs [--dir dist] [--expect-examples]
 //                                    [--registry-dir registry]
-//                                    [--ledger-dir ledger] [--ct-dir ct]
 //
 // THE POINT OF THIS SCRIPT IS THAT IT DOES NOT TRUST THE BUILD. It derives the expected
-// artifact path set a SECOND time, straight from registry/ + ledger/ + ct/, and compares
-// it to what is actually on disk. A bug that makes the build skip a repository would be
-// invisible to a check that read the build's own manifest; it is not invisible to this
-// one.
+// artifact path set a SECOND time, straight from registry/, and compares it to what is
+// actually on disk. A bug that makes the build skip a repository would be invisible to a
+// check that read the build's own manifest; it is not invisible to this one.
+//
+// THE REGISTRY SUBSET OF THE CATALOG (2026-09-09). FS-00 §6.2 is one catalog with two
+// producers at v0. This gate holds the half derivable from registry YAML — the index shards
+// and meta, the repo records, the badges, the waivers, `stats.json` and the publish log —
+// because that is the half this repository emits. `/ledger/**`, `/ct/**` and the CSV twin
+// moved to {ORG}/website with their sources (FS-00 §6.10, ruling of 2026-09-07; trees
+// retired here 2026-09-09) and are gated by `website/scripts/check-artifacts.mjs` over the
+// plane that has them. The narrowing is of this gate's SCOPE, never of the catalog: a
+// ledger path appearing in this output would now fail the path grammar, which is the
+// correct answer for a producer that has no ledger to derive it from.
 //
 // Four assertions:
 //   1. PATH GRAMMAR — every file in the output matches one of the FS-00 §6.2 path
-//      patterns. An unexpected path means the plane grew a surface nobody reviewed.
+//      patterns this producer may emit. An unexpected path means the plane grew a surface
+//      nobody reviewed.
 //   2. SET EQUALITY — the emitted set equals the independently derived set: nothing
 //      missing, nothing extra.
 //   3. NO EXAMPLE LEAKAGE — no `example: true` entry's node_id, owner, or name appears
@@ -36,13 +45,11 @@ import {
   publishable,
   shardOf,
 } from './lib/registry.mjs';
-import { LEDGER_DIR, loadLedger } from './lib/ledger.mjs';
-import { CT_DIR, loadCt } from './lib/ct.mjs';
 
 const args = parseArgs(process.argv.slice(2), {
   flags: ['expect-examples'],
-  values: ['dir', 'registry-dir', 'ledger-dir', 'ct-dir'],
-  defaults: { dir: 'dist', 'registry-dir': null, 'ledger-dir': null, 'ct-dir': null },
+  values: ['dir', 'registry-dir'],
+  defaults: { dir: 'dist', 'registry-dir': null },
 });
 
 const cfg = config();
@@ -78,10 +85,8 @@ const entries = args['expect-examples']
   ? [...publishable(loaded), ...exampleEntries(loaded)]
   : publishable(loaded);
 const listed = entries.filter((e) => PUBLISHED_STATES.includes(e.state));
-const months = loadLedger(args['ledger-dir'] ? resolve(ROOT, args['ledger-dir']) : LEDGER_DIR);
-const ct = loadCt(args['ct-dir'] ? resolve(ROOT, args['ct-dir']) : CT_DIR);
 
-const expected = new Set(['registry/index/meta.json', 'registry.json', 'waivers/all.json', 'stats.json', 'ledger/chain.json', 'ct/latest.json', 'meta/publish-log.json']);
+const expected = new Set(['registry/index/meta.json', 'registry.json', 'waivers/all.json', 'stats.json', 'meta/publish-log.json']);
 
 for (const shard of new Set(listed.map((e) => shardOf(e.name)))) {
   expected.add(`registry/index/${shard}.json`);
@@ -91,17 +96,13 @@ for (const e of listed) {
   expected.add(`badge/${e.node_id}.json`);
   expected.add(`waivers/${e.node_id}.json`);
 }
-for (const m of months) {
-  expected.add(`ledger/${m.month}.json`);
-  expected.add(`ledger/${m.month}.csv`);
-}
-for (const s of ct) expected.add(`ct/${s.segment}.json`);
 
 // ------------------------------------------------------------------ 1. the path grammar
 //
-// The FS-00 §6.2 catalog, as patterns. Anything the plane can legally contain is on this
-// list; the list is deliberately narrow, because widening it is the moment to ask whether
-// a new public surface was actually agreed.
+// The FS-00 §6.2 catalog, as patterns — the registry half of it, which is what this
+// producer emits. The list is deliberately narrow, because widening it is the moment to ask
+// whether a new public surface was actually agreed. The ledger, CT and certificate patterns
+// are on the WEBSITE's copy of this grammar, over the plane that holds their sources.
 
 const NODE_ID = '(?:R_[A-Za-z0-9_-]{6,118}|MDEwOlJlcG9zaXRvcnk[A-Za-z0-9+/=]{1,96})';
 const GRAMMAR = [
@@ -113,11 +114,6 @@ const GRAMMAR = [
   ['waiver record', new RegExp(`^waivers/${NODE_ID}\\.json$`)],
   ['waiver registry', /^waivers\/all\.json$/],
   ['public counters', /^stats\.json$/],
-  ['ledger month (json)', /^ledger\/\d{4}-(?:0[1-9]|1[0-2])\.json$/],
-  ['ledger month (csv)', /^ledger\/\d{4}-(?:0[1-9]|1[0-2])\.csv$/],
-  ['ledger chain', /^ledger\/chain\.json$/],
-  ['ct segment', /^ct\/(?:0|[1-9]\d*)\.json$/],
-  ['ct head', /^ct\/latest\.json$/],
   ['publish log', /^meta\/publish-log\.json$/],
 ];
 
@@ -208,12 +204,8 @@ for (const p of actual) {
       failures.add(`${args.dir}/${p}`, `is not valid JSON — ${err.message}`);
       continue;
     }
-    // FS-00 §6.2: every artifact carries schemaVersion and generatedAt. There are exactly
-    // TWO documented exceptions, both because another specification owns the body:
-    //
-    //   ct/*.json — the shape is FS08-111's, which carries schemaVersion and deliberately
-    //     no generatedAt. A CT segment is immutable and its bytes are hashed by the next
-    //     segment, so a regeneration timestamp inside it would break the segment chain.
+    // FS-00 §6.2: every artifact carries schemaVersion and generatedAt. ONE documented
+    // exception survives in this plane, because another specification owns the body:
     //
     //   badge/*.json — the body is the shields.io ENDPOINT schema, and FS10-030 is
     //     byte-authoritative for it. Its `schemaVersion: 1` is shields' own required
@@ -221,20 +213,18 @@ for (const p of actual) {
     //     receives — so the four fields are the whole body and nothing is added to it. The
     //     badge's freshness lives in `cacheSeconds` and the edge cache headers (INF-15),
     //     which is where a badge consumer actually looks.
+    //
+    // The second exception was `ct/*.json`, whose immutable bytes are hashed by the next
+    // segment and therefore carry no `generatedAt` (FS08-111/FS08-135). It is not restated
+    // here as a branch that can never be taken: the CT log moved to {ORG}/website on
+    // 2026-09-09, so a `ct/` path now fails the grammar above before reaching this loop, and
+    // the exception is enforced where the segments are — `website/scripts/check-artifacts.mjs`.
     if (parsed.schemaVersion === undefined) {
       failures.add(`${args.dir}/${p}`, 'has no `schemaVersion` (FS-00 §6.2 requires it on every artifact).');
     }
-    const ctSegment = /^ct\//.test(p);
     const badge = /^badge\//.test(p);
-    if (!ctSegment && !badge && parsed.generatedAt === undefined) {
+    if (!badge && parsed.generatedAt === undefined) {
       failures.add(`${args.dir}/${p}`, 'has no `generatedAt` (FS-00 §6.2 requires it on every artifact).');
-    }
-    if (ctSegment && parsed.generatedAt !== undefined) {
-      failures.add(
-        `${args.dir}/${p}`,
-        'carries `generatedAt`. A CT segment is immutable and its bytes are hashed by the next segment; ' +
-          'a regeneration timestamp inside it would break the segment chain (FS08-111/FS08-135).'
-      );
     }
     if (badge && parsed.generatedAt !== undefined) {
       failures.add(
@@ -243,7 +233,7 @@ for (const p of actual) {
           "keep it to label/message/color/cacheSeconds plus shields' own schemaVersion."
       );
     }
-    if (!ctSegment && parsed.generatedAt !== undefined && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(parsed.generatedAt)) {
+    if (parsed.generatedAt !== undefined && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(parsed.generatedAt)) {
       failures.add(`${args.dir}/${p}`, `generatedAt "${parsed.generatedAt}" is not the fixed UTC second-precision form — determinism depends on it.`);
     }
 
@@ -265,8 +255,12 @@ for (const p of actual) {
   }
 }
 
-// Cross-artifact honesty: no CHF amount may be rendered anywhere while the ledger has
-// routed nothing. `chfRoutedMinor: null` is the fact; a stray figure would contradict it.
+// Cross-artifact honesty: no CHF amount may be rendered anywhere while `stats.json` reports
+// no routed total. Kept conditional on the null rather than made unconditional, even though
+// this producer's `chfRoutedMinor` is null by construction from 2026-09-09: the condition IS
+// the rule — a figure is only a contradiction while the counter says nothing was routed —
+// and the day a producer here can count francs, the rule should relax with it and not have
+// to be rediscovered.
 if (stats && stats.chfRoutedMinor === null) {
   const CHF_FIGURE = /\bCHF[\s ]*[0-9]/i;
   for (const p of actual) {
@@ -299,6 +293,21 @@ if (stats) {
       'contributorsClaimed must be null at v0: there is no contributor claim flow before Phase E, so the number is structurally unknowable rather than zero (VS-19).'
     );
   }
+  // Recorded 2026-09-09, and the reason is the same shape as contributorsClaimed's: both
+  // of these are counted off LEDGER ROWS, and this producer holds no ledger — the canonical
+  // one is {ORG}/website's (FS-00 §6.10). A number here could only come from somewhere
+  // other than the data, and a 0 would be worse than a guess: it asserts that no company is
+  // covered and that no franc has moved, which is a claim about the world a registry has no
+  // standing to make. This is also what keeps `post-first-franc` out of this plane — the
+  // state needs a `disburse` row, and a build that cannot see one must not name it.
+  for (const k of ['companiesCovered', 'chfRoutedMinor']) {
+    if (stats[k] !== null) {
+      failures.add(
+        `${args.dir}/stats.json`,
+        `${k} is ${JSON.stringify(stats[k])}, and this producer has no ledger to derive it from (the canonical ledger is {ORG}/website's, FS-00 §6.10). It must be null: null reads as "this build cannot see it", where a figure reads as a fact nothing here counted (D21, VS-19).`
+      );
+    }
+  }
   if (!['pre-launch', 'launched-pre-disbursement', 'post-first-franc'].includes(stats.state)) {
     failures.add(`${args.dir}/stats.json`, `state "${stats.state}" is not one of the three machine states (FS-10 §10).`);
   }
@@ -308,7 +317,7 @@ if (stats) {
 // of the checks above vacuous, so say so out loud rather than reporting a confident pass.
 const vacuous = listed.length === 0;
 failures.finish(
-  `${actual.length} artifact(s), ${listed.length} listed repo(s), ${months.length} ledger month(s), ${ct.length} CT segment(s)` +
+  `${actual.length} artifact(s), ${listed.length} listed repo(s)` +
     (vacuous
       ? ' — NOTE: no repository is published yet, so the per-repo assertions had nothing to inspect. ' +
         `The per-repo shapes are covered by the demo build (npm run check:artifacts:demo) and by tests/index-build.test.mjs.`

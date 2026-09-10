@@ -64,7 +64,12 @@
     "_comment": [
       "Every emitted artifact carries `schemaVersion` (FS-00 §6.2). These are the v0",
       "values; the machine-readable contracts themselves are published in {ORG}/spec,",
-      "and a bump here without a matching bump there is a defect."
+      "and a bump here without a matching bump there is a defect.",
+      "Dated note, 2026-09-09: `ledgerMonth`, `ledgerChain` and `ctSegment` are gone from",
+      "this list with the artifacts they versioned. The versions themselves did not change",
+      "and no published URL moved — the producer did: {ORG}/website emits `/ledger/**` and",
+      "`/ct/**` from its own sources (FS-00 §6.10). A key kept here for artifacts this",
+      "build cannot emit would be a version nobody stamps."
     ],
     "registryIndexMeta": 1,
     "registryIndexShard": 1,
@@ -72,36 +77,23 @@
     "registryExport": 1,
     "badge": 1,
     "waivers": 1,
-    "stats": 1,
-    "ledgerMonth": 1,
-    "ledgerChain": 1,
-    "ctSegment": 1
+    "stats": 1
   },
 
-  "ledger": {
-    "_comment": [
-      "FS-07 §5.2: one global append-ordered hash chain, genesis prev_hash = 64 zeros.",
-      "`monthCloseDayOfMonth` + `monthCloseOffsetMonths` encode VS-36's month-immutability",
-      "rule and nothing else: month M's file is CLOSED from day 3 of month M+2 and may not",
-      "change at all — see scripts/ledger-verify.mjs. This window is a file-immutability",
-      "rule, never the allocation rule: since ops decision D33 item 4 (2026-09-06) a payout",
-      "month's allocation is locked no later than the twentieth day after that month's last",
-      "payout and each listed recipient's share is transferred on or before the thirtieth",
-      "(lock before sweep); there is no chargeback hold. The two constants are unchanged.",
-      "Superseded wording: \"which is when FS07-050's allocator would lock it (the M+1",
-      "chargeback hold having fully elapsed)\"."
-    ],
-    "genesisHash": "0000000000000000000000000000000000000000000000000000000000000000",
-    "monthCloseOffsetMonths": 2,
-    "monthCloseDayOfMonth": 3
-  },
-
-  "ct": {
-    "_comment": [
-      "FS-08 §12 (FS08-111/113): flat append-only log, fixed 10,000 entries per closed",
-      "segment, chained by hash. v0 is exactly segment 0."
-    ],
-    "entriesPerSegment": 10000,
-    "genesisPrevSegmentSha256": null
-  }
+  "_comment_ledger_and_ct": [
+    "MOVED, 2026-09-09 — FS-00 §6.10 and the ruling of 2026-09-07. The `ledger` block",
+    "(genesis hash, month-close offset and day) and the `ct` block (entries per segment,",
+    "genesis previous-segment hash) stood here while this repository hosted those trees.",
+    "It is canonical for registry YAML only, so both constant sets now live where the data",
+    "and its guards do: `website/src/data/data-plane.json` (keys `ledger` and `ct`, read by",
+    "`website/scripts/lib/plane.mjs` and by the ported ledger-verify / ct-verify /",
+    "ledger-append), with the prose for each in `website/src/data/ledger/README.md` and",
+    "`website/ct/README.md`. Deliberately NOT `website/src/data/ledger/config.json`: that",
+    "builder reads every .json in that directory as a month file, and the guards' stray-file",
+    "rule then refuses it — the file's own comment there says so.",
+    "The values were not restated on the way out and are unchanged: the constants moved,",
+    "the rules did not. A pointer rather than a deletion because the question \"where did",
+    "the month-close constant go?\" has one answer, and it should be readable from the file",
+    "that used to hold it."
+  ]
 }

@@ -112,7 +112,7 @@ const FORBIDDEN_KEYS = {
   gratis_waivers: 'The gratis-waiver guarantee is a constitutional clause, not a per-repo field.',
   entitlements: 'Entitlements are FS-05 state, published as signed JWS records, never as registry YAML.',
   impact_shares: 'Impact Shares are computed from attribution snapshots (FS-06), never declared.',
-  amount_minor: 'No money figure belongs in the registry. Money lives in the ledger and nowhere else.',
+  amount_minor: 'No money figure belongs in the registry. Money is recorded only in the v0 ledger, which is the website repository\'s (FS-00 §6.10) and reaches it through its own append tool — never through a registry entry.',
   stats: 'Per-repo statistics are computed into the repo record and /stats.json; a declared figure would be an unbacked claim (D21).',
   manifest: 'PURPOSE.yml lives in the repository, not here, and is optional overrides only (D23). v0 does not parse it.',
   powers_suspended: 'An orthogonal private flag (FS02-020 F1), not registry data.',

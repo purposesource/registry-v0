@@ -1,6 +1,5 @@
 # FS02-060: registry-v0 is PR-based and operator-merged. There is no self-service write
-# path at v0 — every change to the registry, the ledger, or the CT log is reviewed and
-# merged by the steward operator.
+# path at v0 — every change to the registry is reviewed and merged by the steward operator.
 #
 # Dated note, 2026-09-08: every owner below is the organisation OWNER's login, not a
 # team. It used to name a `stewards` team of this organisation, and no such team exists
@@ -21,11 +20,15 @@
 
 *                       @DimitrieVatra
 
-# The three append-only trees. Same owner today; called out separately because the review
-# question is different — for these the reviewer is checking that nothing EARLIER changed,
-# which is a different read from reviewing a new registry entry.
-/ledger/                @DimitrieVatra
-/ct/                    @DimitrieVatra
+# The append-only tree. Same owner today; called out separately because the review question
+# is different — here the reviewer is also checking that nothing EARLIER changed, which is a
+# different read from reviewing a new registry entry.
+#
+# Dated note, 2026-09-09: this list held `/ledger/` and `/ct/` beside it. Both trees retired
+# with the move of the v0 ledger and CT log to {ORG}/website (FS-00 §6.10), and their review
+# question moved with them — that repository's CODEOWNERS carries it now. A path rule for a
+# directory that does not exist owns nothing and would read as though someone still watched
+# it.
 /registry/              @DimitrieVatra
 
 # The contracts and the gates. A change here changes what the data is allowed to be.

@@ -19,15 +19,9 @@ function writeJsonAt(abs, value) {
 }
 
 const ALL_STATES = 'tests/fixtures/registry-all-states';
-const FX_LEDGER = 'tests/fixtures/ledger';
-const FX_CT = 'tests/fixtures/ct';
 
 function build(outRel, extra = [], env = {}) {
-  const r = runScript(
-    'index-build-lite.mjs',
-    ['--out', outRel, '--registry-dir', ALL_STATES, '--ledger-dir', FX_LEDGER, '--ct-dir', FX_CT, ...extra],
-    env
-  );
+  const r = runScript('index-build-lite.mjs', ['--out', outRel, '--registry-dir', ALL_STATES, ...extra], env);
   assert.equal(r.code, 0, r.stderr);
   return join(REPO, outRel);
 }
@@ -36,12 +30,16 @@ function readOut(outRel, ...parts) {
   return JSON.parse(readFileSync(join(REPO, outRel, ...parts), 'utf8'));
 }
 
-test('the full artifact set is emitted at exactly the FS-00 §6.2 paths', (t) => {
+test('the registry half of the FS-00 §6.2 catalog is emitted, and nothing else', (t) => {
   const ws = workspace('build', {});
   t.after(() => cleanup(ws));
   const out = `${ws}/dist`;
   build(out);
 
+  // NO `ledger/**` AND NO `ct/**`, deliberately (2026-09-09). Their sources are the
+  // website's (FS-00 §6.10), so this producer emitting either would mean emitting an
+  // artifact it derived from nothing. The absence is the assertion: it is spelled out in
+  // this list rather than left to the reader of a shorter one.
   const paths = treeOf(join(REPO, out)).map(([p]) => p);
   assert.deepEqual(paths.sort(), [
     // shard `0` holds `9lives`; `a`, `c` and `d` hold the rest. `bravo-lib` is `detected`
@@ -50,13 +48,6 @@ test('the full artifact set is emitted at exactly the FS-00 §6.2 paths', (t) =>
     'badge/R_kgDOFIXTUREC003.json',
     'badge/R_kgDOFIXTURED004.json',
     'badge/R_kgDOFIXTUREE005.json',
-    'ct/0.json',
-    'ct/latest.json',
-    'ledger/2026-11.csv',
-    'ledger/2026-11.json',
-    'ledger/2026-12.csv',
-    'ledger/2026-12.json',
-    'ledger/chain.json',
     'meta/publish-log.json',
     'registry.json',
     'registry/index/0.json',
@@ -170,29 +161,29 @@ test('every repo record carries an empty waiver list and no statistics block', (
 });
 
 test('stats flips from pre-launch to launched-pre-disbursement on real data (VS-19)', (t) => {
-  const ws = workspace('stats', { registry: ALL_STATES, ledger: FX_LEDGER, ct: FX_CT });
+  const ws = workspace('stats', { registry: ALL_STATES });
   t.after(() => cleanup(ws));
 
-  // With data: launched, real project/company counts, contributors and CHF still null.
+  // With data: launched, a real project count, and every ledger-derived figure null.
   build(`${ws}/withdata`);
   const s2 = readOut(`${ws}/withdata`, 'stats.json');
   assert.equal(s2.state, 'launched-pre-disbursement');
   assert.equal(s2.projectsRegistered, 3, 'verified + detected + suspended; quit and delisted are not registrations');
-  assert.equal(s2.companiesCovered, 2);
   assert.equal(s2.contributorsClaimed, null, 'no claim flow at v0 — structurally unknowable, not zero');
+  // Both were counted off ledger rows until 2026-09-09. This producer holds no ledger
+  // (FS-00 §6.10), so a figure could only come from somewhere other than the data — and a
+  // 0 would assert that no company is covered and no franc has moved, which a registry has
+  // no standing to say. check-artifacts.mjs fails the build on either.
+  assert.equal(s2.companiesCovered, null, 'no ledger here — null, and never 0');
   assert.equal(s2.chfRoutedMinor, null, 'never "CHF 0" before a disbursement exists');
 
-  // Empty sources: pre-launch, every numeric field null.
-  const emptyReg = `${ws}/empty-registry`;
-  const emptyLedger = `${ws}/empty-ledger`;
+  // No registry at all: pre-launch, every numeric field null.
   const r = runScript('index-build-lite.mjs', [
     '--out', `${ws}/prelaunch`,
-    '--registry-dir', emptyReg,
-    '--ledger-dir', emptyLedger,
-    '--ct-dir', FX_CT,
+    '--registry-dir', `${ws}/empty-registry`,
   ]);
-  // Those directories do not exist, which loadRegistry/loadLedger treat as "nothing here"
-  // — the honest pre-launch state for a repo whose curation has not started.
+  // That directory does not exist, which loadRegistry treats as "nothing here" — the honest
+  // pre-launch state for a repo whose curation has not started.
   assert.equal(r.code, 0, r.stderr);
   const s1 = readOut(`${ws}/prelaunch`, 'stats.json');
   assert.equal(s1.state, 'pre-launch');
@@ -201,42 +192,26 @@ test('stats flips from pre-launch to launched-pre-disbursement on real data (VS-
   }
 });
 
-test('the ledger CSV twin carries the same rows as the JSON (VS-37: divergence is a defect)', (t) => {
-  const ws = workspace('csv', {});
+test('this producer cannot emit a ledger or CT artifact, and the gate says so if one appears', (t) => {
+  const ws = workspace('noledger', {});
   t.after(() => cleanup(ws));
   const out = `${ws}/dist`;
   build(out);
 
-  const json = readOut(out, 'ledger/2026-11.json');
-  const csv = readFileSync(join(REPO, out, 'ledger/2026-11.csv'), 'utf8').trimEnd().split('\n');
-  assert.equal(csv.length - 1, json.rows.length, 'one data line per row, plus the header');
-  assert.match(csv[0], /^seq,led_id,month,row_type,amount_minor,currency,/);
-  for (const row of json.rows) {
-    assert.ok(
-      csv.some((line) => line.startsWith(`${row.seq},${row.led_id},`)),
-      `row ${row.seq} is missing from the CSV`
-    );
-    assert.ok(csv.some((line) => line.includes(row.row_hash)), `row ${row.seq}'s hash is missing from the CSV`);
-  }
-});
-
-test('a CSV cell containing a comma or a quote is escaped, not silently broken', (t) => {
-  const ws = workspace('csvesc', { registry: ALL_STATES, ct: FX_CT, ledger: FX_LEDGER });
-  t.after(() => cleanup(ws));
-
-  const monthPath = join(REPO, ws, 'ledger', '2026-11.json');
-  const month = JSON.parse(readFileSync(monthPath, 'utf8'));
-  month.rows[0].note = 'a note with, a comma and a "quote"';
-  // The row hash no longer matches, which is exactly what ledger-verify would catch; this
-  // test is only about CSV rendering, so it writes the file straight and never verifies.
-  writeJsonAt(monthPath, month);
-
+  // The flags that used to point the build at a ledger and a CT tree are gone, and
+  // parseArgs refuses an unknown one rather than ignoring it — so the retirement cannot be
+  // undone by an argument.
   const r = runScript('index-build-lite.mjs', [
-    '--out', `${ws}/dist`, '--registry-dir', ALL_STATES, '--ledger-dir', `${ws}/ledger`, '--ct-dir', FX_CT,
+    '--out', `${ws}/again`, '--registry-dir', ALL_STATES, '--ledger-dir', 'tests/fixtures',
   ]);
-  assert.equal(r.code, 0, r.stderr);
-  const csv = readFileSync(join(REPO, ws, 'dist', 'ledger/2026-11.csv'), 'utf8');
-  assert.ok(csv.includes('"a note with, a comma and a ""quote"""'), csv);
+  assert.equal(r.code, 1, 'a --ledger-dir flag must not be silently accepted');
+
+  // And if one is planted straight into the output, the path grammar rejects it: the
+  // catalog is a closed set per producer, and this producer's half has no ledger in it.
+  writeJsonAt(join(REPO, out, 'ledger-chain.json'), { schemaVersion: 1, generatedAt: NOW });
+  const g = runScript('check-artifacts.mjs', ['--dir', out, '--expect-examples', '--registry-dir', ALL_STATES]);
+  assert.equal(g.code, 1);
+  assert.match(g.stderr, /not a path in the FS-00 §6\.2 artifact catalog/);
 });
 
 test('the artifact gate fails when the plane grows a path nobody agreed to', (t) => {
@@ -247,7 +222,7 @@ test('the artifact gate fails when the plane grows a path nobody agreed to', (t)
 
   writeJsonAt(join(REPO, out, 'surprise.json'), { schemaVersion: 1, generatedAt: NOW });
   const r = runScript('check-artifacts.mjs', [
-    '--dir', out, '--expect-examples', '--registry-dir', ALL_STATES, '--ledger-dir', FX_LEDGER, '--ct-dir', FX_CT,
+    '--dir', out, '--expect-examples', '--registry-dir', ALL_STATES,
   ]);
   assert.equal(r.code, 1);
   assert.match(r.stderr, /not a path in the FS-00 §6\.2 artifact catalog/);
@@ -261,7 +236,7 @@ test('the artifact gate fails when an artifact the sources imply is MISSING', (t
 
   rmSync(join(REPO, out, 'badge/R_kgDOFIXTUREA001.json'));
   const r = runScript('check-artifacts.mjs', [
-    '--dir', out, '--expect-examples', '--registry-dir', ALL_STATES, '--ledger-dir', FX_LEDGER, '--ct-dir', FX_CT,
+    '--dir', out, '--expect-examples', '--registry-dir', ALL_STATES,
   ]);
   assert.equal(r.code, 1);
   assert.match(r.stderr, /MISSING from the build/);

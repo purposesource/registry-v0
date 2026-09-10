@@ -1,7 +1,11 @@
 <!--
-Everything merged here becomes a public statement about a real repository, a real month of
-money, or a real signed object. CI checks the shape; the boxes below are the part only a
-human can check.
+Everything merged here becomes a public statement about a real repository. CI checks the
+shape; the boxes below are the part only a human can check.
+
+A ledger append or a CT log append is NOT a change to this repository: since 2026-09-09
+both live in the website repository (FS-00 §6.10) and its own template carries their
+checklists. If a pull request here proposes a ledger row or a log entry, it is in the wrong
+repository.
 
 Delete the sections that do not apply.
 -->
@@ -15,8 +19,6 @@ Delete the sections that do not apply.
 - [ ] New registry entry
 - [ ] Registry state change (verified / suspended / quit / delisted)
 - [ ] Registry correction (display cache, contacts, licence version bump)
-- [ ] Ledger append
-- [ ] CT log append
 - [ ] Tooling, schema, or configuration
 
 ---
@@ -44,39 +46,13 @@ Delete the sections that do not apply.
 - [ ] There is **no `waivers` field**. Waivers are issued only from the dashboard by a
       claimed admin (D14) and can never enter the registry by pull request.
 
-## For a ledger append
-
-- [ ] The row was produced by `node scripts/ledger-append.mjs`, not hand-written. `seq`,
-      `prev_hash` and `row_hash` are computed; I did not edit them.
-- [ ] **No existing row is touched.** A correction is a NEW row carrying
-      `corrects_led_id`; narrative context is a zero-amount `annotation` row. The ledger
-      annotates and never restates (FS07-042) — there is no exception, including for
-      embarrassing facts.
-- [ ] The target month is still open. A closed month is immutable; a late fact posts
-      against the earliest open month.
-- [ ] `payer_name` is `unnamed` unless the payer explicitly opted in to being named.
-- [ ] Amounts are integer minor units, and any non-CHF settlement carries the whole
-      captured-FX set.
-
-## For a CT log append
-
-- [ ] The entry appends at the end: `seq` is the previous head plus one.
-- [ ] **No existing entry is edited or deleted.** A revocation or status change is a NEW
-      entry whose `ref` is the original hash (CERT-033).
-- [ ] `h` is the SHA-256 of the compact JWS — the signed object, not a rendered PDF.
-- [ ] The entry carries no personal data of any kind (CERT-031). This log is immutable
-      forever, so anything in it is in it permanently.
-- [ ] `typ` is one v0 actually issues: `supporter`, `license-status`, or one of the two
-      non-certificate JWS families.
-
 ## For tooling, schema, or configuration
 
 - [ ] `npm test` passes locally.
-- [ ] If a hash definition changed: I understand that every committed row and entry
-      depends on it, that FS07-101 requires the chain to import unbroken at P-M3, and
-      that `tests/jcs.test.mjs` pins the digest on purpose.
-- [ ] If a new artifact path appeared: it is in the FS-00 §6.2 catalog. Adding a public
-      URL is an FS-00 amendment, not a build change.
+- [ ] If a new artifact path appeared: it is in the FS-00 §6.2 catalog **and derivable from
+      registry YAML**. Adding a public URL is an FS-00 amendment, not a build change; a
+      ledger, CT, certificate or entitlement path belongs to the website's builder, which
+      holds those sources (FS-00 §6.10).
 
 ---
 

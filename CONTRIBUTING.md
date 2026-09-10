@@ -12,15 +12,17 @@ they are, which is the part that makes them survivable.
 
 ## The one rule everything else follows from
 
-Every file in `registry/`, `ledger/` and `ct/` is a **public statement**:
+Every file in `registry/` is a **public statement**: a registry entry says *this real
+repository adopted the licence, on this date, with this exact licence text*.
 
-- a registry entry says *this real repository adopted the licence, on this date, with this
-  exact licence text*;
-- a ledger row says *this much money was recorded, in this month, under this lane*;
-- a CT entry says *this signed object exists, and was logged before it was delivered*.
+That statement is not ours to take back. So the rules below are not process for its own
+sake — they are what makes it safe to publish a claim about someone else.
 
-None of those statements is ours to take back. So the rules below are not process for its
-own sake — they are what makes it safe to publish a claim about someone else.
+The other two statements of that kind — a ledger row (*this much money was recorded, in this
+month, under this lane*) and a CT entry (*this signed object exists, and was logged before it
+was delivered*) — are made in the `website` repository, which has held the v0 ledger and the
+transparency log since FS-00 §6.10's ruling of 2026-09-07 and whose trees here retired on
+2026-09-09. Its own contributing guide carries their rules.
 
 ---
 
@@ -83,85 +85,21 @@ CI checks shape. A reviewer checks the two things it cannot:
 
 ---
 
-## Appending to the ledger
+## Appending to the ledger, or to the CT log
 
-**Do not hand-write a ledger row.** Every row's hash covers every one of its fields and
-chains onto the current global head; getting `seq`, `prev_hash` and `row_hash` right by
-hand is both tedious and exactly the sort of tedium that produces a broken chain in a
-public artifact.
+**Not in this repository, since 2026-09-09.** Both trees live in the `website` repository
+(FS-00 §6.10, ruling of 2026-09-07) together with the tools and the guards that were ported
+there: `scripts/ledger-append.mjs` is the only writer of a ledger row, `npm run verify:ledger`
+recomputes the chain from genesis and compares against a base revision, and `npm run verify:ct`
+does the same for the log. The step-by-step flow that used to be printed here, and the three
+rules with no exceptions it carried — never edit or delete a committed row, a closed month is
+closed, `payer_name` is `unnamed` unless the payer opted in — are in that repository's
+contributing guide and in `src/data/ledger/README.md` and `ct/README.md`, beside the data they
+govern. They are not restated here, because a second copy of an append-only rule is a second
+thing to keep in step.
 
-```bash
-# 1. Write the FACTS of the row into a file — no seq, no prev_hash, no row_hash.
-cat > /tmp/row.json <<'JSON'
-{
-  "led_id": "led_01j...",
-  "month": "2027-01",
-  "row_type": "pool-in",
-  "amount_minor": 250000,
-  "currency": "CHF",
-  "lane": "project",
-  "hold_status": "open-M+1",
-  "payer_name": "unnamed",
-  "external_key": "<Paddle transaction id>",
-  "emitting_job": "operator:record-purchases",
-  "created_at": "2027-01-14T10:15:00Z"
-}
-JSON
-
-# 2. Append it. The tool assigns the position and computes the hashes, validates the
-#    resulting file, re-verifies the whole chain, and only then writes.
-node scripts/ledger-append.mjs --file /tmp/row.json
-
-# 3. Verify, then commit the month file.
-npm run verify:ledger
-```
-
-Three rules with no exceptions:
-
-1. **Never edit or delete a committed row.** CI compares against the previous revision and
-   will refuse the pull request. A correction is a **new** row pointing at the old one with
-   `corrects_led_id`; narrative context is a zero-amount `annotation` row. The ledger
-   annotates, it never restates — including when the fact being corrected is embarrassing.
-2. **A closed month is closed.** A month becomes immutable on day 3 of the month after
-   next — the v0 immutability clock, a ceiling on the close. The rule that decides the close
-   once the allocator exists is lock before sweep (D33 item 4, 2026-09-06): the allocation is
-   computed at the lock, no later than twenty days after the month's last rail payout, and
-   each listed recipient's share is transferred directly on or before the thirtieth day. A
-   late fact posts against the earliest still-open month, forward-only; nothing is ever
-   clawed back from a recipient.
-3. **`payer_name` is `unnamed`** unless the payer explicitly opted in to being named.
-
-No allocation row exists at v0. There is no allocator yet, so `charged-to-fees`,
-`reserve-retention`, `hardship-pay` (the two capped lines of D34), `repo-pool`, `disburse`
-(a transfer to a listed recipient) and their relatives are refused by name rather than by a
-generic enum error — publishing one would be publishing a figure nothing computed.
-
----
-
-## Appending to the CT log
-
-The log is `ct/0.json`. A new entry goes at the **end**, with `seq` equal to the previous
-head plus one:
-
-```json
-{ "seq": 5, "h": "<sha256 of the compact JWS>", "typ": "supporter",
-  "kind": "issue", "ref": null, "ts": "2027-01-14T10:20:00Z" }
-```
-
-Then `npm run verify:ct`.
-
-- `h` is the hash of the **signed object** (the compact JWS), never of a rendered PDF.
-  That is why a certificate's PDF does not need to be byte-deterministic, and why a
-  signature that never reached the log is harmless: verification requires log presence.
-- A revocation or status change is a **new entry** whose `ref` is the original hash. The
-  log never edits. An edited entry silently invalidates every verification that already
-  succeeded against it, which is why CI refuses one.
-- **No personal data, ever.** Hashes, type codes, timestamps. The log is immutable
-  forever, so anything in it is in it permanently — that is precisely what makes it
-  privacy-compatible, and one name would end that.
-- The order of operations for an issuance is: compute the JWS → **merge its hash into this
-  log** → emit the verify record and the rendered artifact → deliver. A deliverable whose
-  hash is not merged is not deliverable.
+A pull request against **this** repository never appends a ledger row or a log entry. If one
+seems to, it is in the wrong repository.
 
 ---
 
@@ -170,12 +108,12 @@ Then `npm run verify:ct`.
 | Command | What it does |
 |---|---|
 | `npm run validate` | Every registry entry, against the schema and the rules a schema cannot express |
-| `npm run build` | `index-build-lite`: emits the public artifact plane into `dist/` |
+| `npm run build` | `index-build-lite`: emits the registry half of the public artifact plane into `dist/` |
 | `npm run check:artifacts` | Independently re-derives the expected artifact set and compares; asserts the honesty invariants |
-| `npm run build:demo` / `check:artifacts:demo` | The same build over the seeded examples and fixture ledger/CT, so every artifact shape is exercised even while the real plane is empty |
-| `npm run verify:ledger` | Recomputes the chain from genesis; compares against the base revision |
-| `npm run verify:ct` | Structure, monotonicity, segment chain, no PII; compares against the base revision |
+| `npm run check:schema` | Validates every emitted artifact against the schemas `{ORG}/spec` publishes |
+| `npm run build:demo` / `check:artifacts:demo` | The same build over the seeded examples, so every artifact shape this producer emits is exercised even while the real plane is empty |
 | `npm run check:copy` | The hard copy bans |
+| `npm run check:no-records` | The private recording store may never appear here |
 | `npm test` | All of the above, in the order CI runs them |
 
 Two design choices worth knowing before you change anything:

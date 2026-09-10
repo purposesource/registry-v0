@@ -1,6 +1,9 @@
-# Every artifact in this repo is hashed (JCS/SHA-256 ledger chain, CT entry hashes,
-# canonical-text SHA-256s). A CRLF checkout on Windows would change the bytes that
-# `git show` hands the append-only guards, so the whole tree is pinned to LF.
+# Bytes here are load-bearing: every registry entry carries the canonical licence text's
+# SHA-256, and the emitted artifacts are byte-compared between two runs of unchanged sources
+# (VS-04, FS02-084). A CRLF checkout on Windows would change them, so the whole tree is
+# pinned to LF. It was pinned first for the JCS/SHA-256 ledger chain and the CT entry hashes;
+# those trees moved to the website on 2026-09-09 (FS-00 §6.10) and the reasons above stand
+# on their own.
 * text=auto eol=lf
 
 # Nothing here is binary today, but keep the door closed rather than ajar.
