@@ -22,7 +22,8 @@ The other two statements of that kind — a ledger row (*this much money was rec
 month, under this lane*) and a CT entry (*this signed object exists, and was logged before it
 was delivered*) — are made in the `website` repository, which has held the v0 ledger and the
 transparency log since FS-00 §6.10's ruling of 2026-09-07 and whose trees here retired on
-2026-09-09. Its own contributing guide carries their rules.
+2026-09-09. Their rules are written beside the data, in that repository's
+`src/data/ledger/README.md` and `ct/README.md`.
 
 ---
 
@@ -91,12 +92,19 @@ CI checks shape. A reviewer checks the two things it cannot:
 (FS-00 §6.10, ruling of 2026-09-07) together with the tools and the guards that were ported
 there: `scripts/ledger-append.mjs` is the only writer of a ledger row, `npm run verify:ledger`
 recomputes the chain from genesis and compares against a base revision, and `npm run verify:ct`
-does the same for the log. The step-by-step flow that used to be printed here, and the three
-rules with no exceptions it carried — never edit or delete a committed row, a closed month is
-closed, `payer_name` is `unnamed` unless the payer opted in — are in that repository's
-contributing guide and in `src/data/ledger/README.md` and `ct/README.md`, beside the data they
-govern. They are not restated here, because a second copy of an append-only rule is a second
-thing to keep in step.
+does the same for the log. The step-by-step flow that used to be printed here is in that
+repository's `src/data/ledger/README.md` and `ct/README.md`, beside the data it governs, and
+is not restated here — a second copy of an append-only rule is a second thing to keep in step.
+
+Of the three rules with no exceptions this section carried, **two travelled and one did not.**
+Forward-only corrections and closed-month immutability are rules in
+`src/data/ledger/README.md`, and the CT rules — append only, log before deliver, revocation is
+an append, `h` is the hash of the compact JWS, no personal data ever — are rules in
+`ct/README.md`. **`payer_name` is `unnamed` unless the payer explicitly opted in to being
+named** is the one that did not: it appears there only as a value inside a sample row, never
+as a rule, so at this date it is written down in no checklist and no README. Recorded here as
+a gap rather than pointed at, because a payer named without opting in is not a defect a later
+reader should have to rediscover. It is the website's to carry across, and filed as such.
 
 A pull request against **this** repository never appends a ledger row or a log entry. If one
 seems to, it is in the wrong repository.

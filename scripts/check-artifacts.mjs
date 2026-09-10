@@ -14,10 +14,18 @@
 // and meta, the repo records, the badges, the waivers, `stats.json` and the publish log —
 // because that is the half this repository emits. `/ledger/**`, `/ct/**` and the CSV twin
 // moved to {ORG}/website with their sources (FS-00 §6.10, ruling of 2026-09-07; trees
-// retired here 2026-09-09) and are gated by `website/scripts/check-artifacts.mjs` over the
-// plane that has them. The narrowing is of this gate's SCOPE, never of the catalog: a
+// retired here 2026-09-09). The narrowing is of this gate's SCOPE, never of the catalog: a
 // ledger path appearing in this output would now fail the path grammar, which is the
 // correct answer for a producer that has no ledger to derive it from.
+//
+// WHAT DOES AND DOES NOT HOLD OVER THE OTHER HALF. There is no twin of THIS gate there:
+// {ORG}/website has `scripts/check-artifacts-schema.mjs`, which validates every emitted
+// artifact against the published `{ORG}/spec` schemas and fails on a path it cannot map —
+// so an unreviewed surface is still caught. It is not a path-grammar-plus-honesty gate, and
+// the assertions below numbered 2, 3 and 4 have no counterpart over the ledger and CT plane.
+// Said out loud because the alternative is a comment that reads like a hand-off to a gate
+// nobody wrote; where an invariant of this file lost its enforcement in the move, the loss
+// is named at the assertion itself rather than papered over here.
 //
 // Four assertions:
 //   1. PATH GRAMMAR — every file in the output matches one of the FS-00 §6.2 path
@@ -102,7 +110,10 @@ for (const e of listed) {
 // The FS-00 §6.2 catalog, as patterns — the registry half of it, which is what this
 // producer emits. The list is deliberately narrow, because widening it is the moment to ask
 // whether a new public surface was actually agreed. The ledger, CT and certificate patterns
-// are on the WEBSITE's copy of this grammar, over the plane that holds their sources.
+// are NOT enumerated in a second grammar anywhere: {ORG}/website maps its plane to published
+// schemas instead and fails on an unmappable path, which catches a new surface without
+// spelling the catalog out twice. So this list is the only place the registry half's grammar
+// is written down, and it is deliberately narrow.
 
 const NODE_ID = '(?:R_[A-Za-z0-9_-]{6,118}|MDEwOlJlcG9zaXRvcnk[A-Za-z0-9+/=]{1,96})';
 const GRAMMAR = [
@@ -215,10 +226,21 @@ for (const p of actual) {
     //     which is where a badge consumer actually looks.
     //
     // The second exception was `ct/*.json`, whose immutable bytes are hashed by the next
-    // segment and therefore carry no `generatedAt` (FS08-111/FS08-135). It is not restated
-    // here as a branch that can never be taken: the CT log moved to {ORG}/website on
-    // 2026-09-09, so a `ct/` path now fails the grammar above before reaching this loop, and
-    // the exception is enforced where the segments are — `website/scripts/check-artifacts.mjs`.
+    // segment and therefore carry no `generatedAt` (FS08-111/FS08-135). The CT log moved to
+    // {ORG}/website on 2026-09-09, so a `ct/` path now fails the grammar above before
+    // reaching this loop, and the branch is not kept here as one that can never be taken.
+    //
+    // WHAT WAS LOST WITH IT, STATED PLAINLY. This file used to assert the positive rule — a
+    // CT segment that CARRIES a `generatedAt` fails — and **nothing asserts it today.** Over
+    // the canonical log, `scripts/ct-verify.mjs` there checks append-only against a base
+    // revision, segment size, the `prevSegmentSha256` chain, sequence contiguity, hash
+    // well-formedness and the no-personal-data scan; `scripts/check-artifacts-schema.mjs`
+    // there validates the published `ct-segment.v1` contract, which does not forbid the key.
+    // So a regeneration timestamp smuggled into a segment would break the segment chain for
+    // every mirror and no gate would name the cause. That gap is real, it is the website's to
+    // close, and it is recorded as its own follow-up rather than implied to be handled: a
+    // pointer to a guard nobody wrote is worse than no pointer, which is the whole reason
+    // this paragraph is longer than the sentence it replaced.
     if (parsed.schemaVersion === undefined) {
       failures.add(`${args.dir}/${p}`, 'has no `schemaVersion` (FS-00 §6.2 requires it on every artifact).');
     }

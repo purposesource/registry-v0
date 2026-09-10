@@ -154,17 +154,20 @@ granted.
    rather than becoming `0`. No impact vocabulary appears at all. Every artifact carries its
    schema version and generation timestamp — with one named exception, the badge bodies,
    because shields.io owns that object's shape. (The second exception was the transparency
-   segments, immutable and hashed by the next segment; it moved with the log on 2026-09-09
-   and is enforced in the `website` gate.)
+   segments, immutable and hashed by the next segment. That branch went with the log on
+   2026-09-09, and the positive rule it enforced — a segment carrying a `generatedAt` FAILS —
+   has **no successor gate at this date**, in this repository or in `{ORG}/website`. The
+   header of `scripts/check-artifacts.mjs` says which guards there do and do not cover it;
+   closing the gap is that repository's, and it is filed rather than assumed.)
 
 ## Append-only: where it is enforced
 
 The append-only law over the ledger and the transparency log — the hash chain, the
 month-close immutability rule, and the comparison against a base revision that catches a
-rewrite a re-hashed chain would hide — is enforced in the `website` repository, which holds
-both. Read it there: [`src/data/ledger/README.md`](https://github.com/purposesource/website/blob/main/src/data/ledger/README.md)
-and [`ct/README.md`](https://github.com/purposesource/website/blob/main/ct/README.md), with
-the guards at `scripts/ledger-verify.mjs` and `scripts/ct-verify.mjs`.
+rewrite a re-hashed chain would hide — is enforced in `{ORG}/website`, which holds both. Read
+it there: `src/data/ledger/README.md` and `ct/README.md`, with the guards at
+`scripts/ledger-verify.mjs` and `scripts/ct-verify.mjs`, run by that repository's CI on every
+pull request and every push against a baseline it resolves per event.
 
 What is append-only *here* is `registry/`: an entry is corrected forward and a state change
 is a new value on the record, never a rewriting of what was published — the reviewer's job

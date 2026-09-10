@@ -2,10 +2,13 @@
 Everything merged here becomes a public statement about a real repository. CI checks the
 shape; the boxes below are the part only a human can check.
 
-A ledger append or a CT log append is NOT a change to this repository: since 2026-09-09
-both live in the website repository (FS-00 §6.10) and its own template carries their
-checklists. If a pull request here proposes a ledger row or a log entry, it is in the wrong
-repository.
+A ledger append or a CT log append is NOT a change to this repository: since 2026-09-09 both
+live in the website repository (FS-00 §6.10). If a pull request here proposes a ledger row or
+a log entry, it is in the wrong repository. The rules for making one are written beside the
+data, in that repository's `src/data/ledger/README.md` and `ct/README.md` — not in a
+pull-request template, there or here. The ten boxes this template used to carry for those two
+appends are therefore gone rather than relocated, and one of them did not survive the move at
+all: see the note in this repository's CONTRIBUTING.md.
 
 Delete the sections that do not apply.
 -->

@@ -25,10 +25,12 @@
 # different read from reviewing a new registry entry.
 #
 # Dated note, 2026-09-09: this list held `/ledger/` and `/ct/` beside it. Both trees retired
-# with the move of the v0 ledger and CT log to {ORG}/website (FS-00 §6.10), and their review
-# question moved with them — that repository's CODEOWNERS carries it now. A path rule for a
-# directory that does not exist owns nothing and would read as though someone still watched
-# it.
+# with the move of the v0 ledger and CT log to {ORG}/website (FS-00 §6.10), and the rules are
+# deleted here because a path rule for a directory that does not exist owns nothing and would
+# read as though someone still watched it. Not because ownership was handed over: that
+# repository has no CODEOWNERS file at this date. Its append-only guards run in its CI on
+# every pull request and every push, which is the mechanical half; the reviewer's half — a
+# named owner whose review GitHub requests for those paths — is nobody's there yet.
 /registry/              @DimitrieVatra
 
 # The contracts and the gates. A change here changes what the data is allowed to be.

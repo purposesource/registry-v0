@@ -7,14 +7,22 @@
 // example ever reaches a published artifact.
 
 import assert from 'node:assert/strict';
-import { readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import test from 'node:test';
 
 import { NOW, REPO, cleanup, runScript, treeOf, workspace } from './helpers.mjs';
 
-/** Writes JSON to an ABSOLUTE path — the tests plant files inside temp build outputs. */
+/**
+ * Writes JSON to an ABSOLUTE path — the tests plant files inside temp build outputs.
+ *
+ * The directory is created first. Without that, planting a file at a path the build no longer
+ * emits — the retired `ledger/chain.json` being the case that matters — throws ENOENT, and the
+ * only planted paths that work are the root-level ones. That silently reduces a test of "a
+ * retired subtree is rejected" to a duplicate of "a stray root file is rejected".
+ */
 function writeJsonAt(abs, value) {
+  mkdirSync(dirname(abs), { recursive: true });
   writeFileSync(abs, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
 }
 
@@ -206,12 +214,19 @@ test('this producer cannot emit a ledger or CT artifact, and the gate says so if
   ]);
   assert.equal(r.code, 1, 'a --ledger-dir flag must not be silently accepted');
 
-  // And if one is planted straight into the output, the path grammar rejects it: the
-  // catalog is a closed set per producer, and this producer's half has no ledger in it.
-  writeJsonAt(join(REPO, out, 'ledger-chain.json'), { schemaVersion: 1, generatedAt: NOW });
+  // And if one is planted straight into the output, the gate rejects it: the catalog is a
+  // closed set per producer, and this producer's half has no ledger in it. The planted path is
+  // a REAL retired one, `ledger/chain.json` — a root-level `ledger-chain.json` would only
+  // re-test what the next case already covers with `surprise.json`, and would leave the one
+  // regression the two gate headers stake a claim on untested.
+  writeJsonAt(join(REPO, out, 'ledger', 'chain.json'), { schemaVersion: 1, generatedAt: NOW });
   const g = runScript('check-artifacts.mjs', ['--dir', out, '--expect-examples', '--registry-dir', ALL_STATES]);
   assert.equal(g.code, 1);
+  // BOTH errors, which is what tells this apart from a stray root file: the path is outside
+  // the grammar AND it is not derivable from the committed sources. A retired subtree has to
+  // fail on both counts, because either one alone could be a mapping oversight.
   assert.match(g.stderr, /not a path in the FS-00 §6\.2 artifact catalog/);
+  assert.match(g.stderr, /NOT derivable from the committed sources/);
 });
 
 test('the artifact gate fails when the plane grows a path nobody agreed to', (t) => {

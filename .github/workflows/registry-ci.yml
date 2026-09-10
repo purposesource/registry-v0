@@ -200,9 +200,12 @@ jobs:
 
       - name: Line endings are LF
         run: |
-          # Every artifact in this repo is hashed, so a CRLF checkout would change the
-          # bytes the append-only guards compare. .gitattributes pins the tree to LF; this
-          # asserts nobody committed CRLF past it.
+          # Bytes here are load-bearing: every registry entry carries the canonical licence
+          # text's SHA-256, and the emitted artifacts are byte-compared between two runs of
+          # unchanged sources (VS-04, FS02-084). A CRLF checkout would change them. This step
+          # was first justified by the append-only guards' baseline comparison; those retired
+          # with the ledger and CT trees on 2026-09-09, and the reasons above stand on their
+          # own. .gitattributes pins the tree to LF; this asserts nobody committed CRLF past it.
           if git grep -Il $'\r' -- ':!*.png' ':!*.pdf' >/dev/null 2>&1; then
             echo "::error::CRLF found in a tracked text file — the tree is LF-only (see .gitattributes)."
             git grep -Il $'\r' -- ':!*.png' ':!*.pdf'
