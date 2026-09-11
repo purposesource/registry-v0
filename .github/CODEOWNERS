@@ -7,10 +7,10 @@
 # the team did not exist and a CODEOWNERS file naming a team that does not exist silently
 # reviews nothing — GitHub cannot request a review from an owner it cannot resolve, so a
 # "required review from Code Owners" rule can be satisfied by nobody at all, which is worse
-# than no file. The team the record always intended now exists (SETUP-STATUS 23.15), so the
-# rows name it again. The members are not listed here: neither is a PUBLIC member of the
-# organisation (`orgs/purposesource/public_members` → `[]` on this date), and this is a public
-# repository, so the count is recorded and the logins stay in the private record.
+# than no file. The team the record always intended now exists, so the rows name it again. The
+# members are not listed here: neither is a PUBLIC member of the organisation
+# (`orgs/purposesource/public_members` → `[]` on this date), and this is a public repository,
+# so the count is recorded and the logins stay in the private record.
 #
 # WHAT IS NOT TRUE YET, all of it measured read-only on 2026-09-11. Two operator acts remain,
 # IN THIS ORDER, and until the first of them these rows still request review from nobody:
