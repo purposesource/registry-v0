@@ -1,24 +1,48 @@
 # FS02-060: registry-v0 is PR-based and operator-merged. There is no self-service write
 # path at v0 — every change to the registry is reviewed and merged by the steward operator.
 #
-# Dated note, 2026-09-08: every owner below is the organisation OWNER's login, not a
-# team. It used to name a `stewards` team of this organisation, and no such team exists
-# — a CODEOWNERS file naming a team that does not exist silently reviews nothing, which
-# is worse than no file: GitHub cannot request a review from an owner it cannot resolve,
-# so a "required review from Code Owners" rule can be satisfied by nobody at all. A
-# login GitHub can resolve is strictly better than a team it cannot.
+# Dated note, 2026-09-11: every owner below is the organisation TEAM `@purposesource/stewards`
+# (id 19450495, created 2026-09-11T11:42:17Z, two members), read back read-only on this date.
+# From 2026-09-08 until today these rows named the organisation OWNER's login instead, because
+# the team did not exist and a CODEOWNERS file naming a team that does not exist silently
+# reviews nothing — GitHub cannot request a review from an owner it cannot resolve, so a
+# "required review from Code Owners" rule can be satisfied by nobody at all, which is worse
+# than no file. The team the record always intended now exists (SETUP-STATUS 23.15), so the
+# rows name it again. The members are not listed here: neither is a PUBLIC member of the
+# organisation (`orgs/purposesource/public_members` → `[]` on this date), and this is a public
+# repository, so the count is recorded and the logins stay in the private record.
 #
-# Two things this does NOT do. It does not make review required: branch protection
-# carries no required-review rule while the organisation has a single admin, who cannot
-# review their own pull request in any case. And it does not settle the owner for good:
-# creating the team, putting its members in it and turning the required-review rule on
-# is one operator act, tracked as PS-O14, and this file names the team again on the day
-# the team exists. Verify on the first pull request that a review is actually requested.
+# WHAT IS NOT TRUE YET, all of it measured read-only on 2026-09-11. Two operator acts remain,
+# IN THIS ORDER, and until the first of them these rows still request review from nobody:
 #
-# Superseded wording: "[HUMAN TODO] Replace the placeholder team with the real one once
-# the GitHub org exists and branch protection is configured."
+#   1. THE TEAM HOLDS NO REPOSITORY ACCESS. `orgs/purposesource/teams/stewards/repos` returns
+#      `[]`, and the team object reports `repos_count: 0`. GitHub resolves a TEAM as a code
+#      owner only where that team has write access to the repository — even when every member
+#      already has write individually — so today these rows name an owner this repository
+#      cannot resolve. Granting `@purposesource/stewards` WRITE on `registry-v0`, `spec` and
+#      `license` is the first act, and it is what makes this file real rather than decorative.
+#   2. NO BRANCH CARRIES A REQUIRED REVIEW. `repos/purposesource/registry-v0/branches/main/
+#      protection` reports `required_pull_request_reviews: null` — the protection is linear
+#      history, no force-push, no deletions, and nothing else; `spec` and `license` read the
+#      same. "Require a pull request before merging" with "require review from Code Owners"
+#      (1 approval) is the second act. Until it exists this file is advisory: it requests a
+#      review, it does not require one.
+#
+# THE ORDER IS THE WHOLE POINT. Act 2 before act 1 produces a rule nobody can satisfy — the
+# same "satisfied by nobody" failure the superseded note describes, in a new shape, except
+# that this time it locks the admins out of their own repository instead of merely reviewing
+# nothing. Grant the access, confirm on the next pull request that a review is actually
+# requested of `@purposesource/stewards`, and only then require it.
+#
+# Both acts are the operator's, tracked as PS-O14.
+#
+# Superseded wording, kept as history rather than dropped: "[HUMAN TODO] Replace the
+# placeholder team with the real one once the GitHub org exists and branch protection is
+# configured." (until 2026-09-08), and the 2026-09-08 note that put the org owner's login
+# here — its reasoning is restated above, and this change reverses its conclusion on the day
+# the condition it named was met.
 
-*                       @DimitrieVatra
+*                       @purposesource/stewards
 
 # The append-only tree. Same owner today; called out separately because the review question
 # is different — here the reviewer is also checking that nothing EARLIER changed, which is a
@@ -31,10 +55,10 @@
 # repository has no CODEOWNERS file at this date. Its append-only guards run in its CI on
 # every pull request and every push, which is the mechanical half; the reviewer's half — a
 # named owner whose review GitHub requests for those paths — is nobody's there yet.
-/registry/              @DimitrieVatra
+/registry/              @purposesource/stewards
 
 # The contracts and the gates. A change here changes what the data is allowed to be.
-/schema/                @DimitrieVatra
-/scripts/               @DimitrieVatra
-/config/                @DimitrieVatra
-/.github/               @DimitrieVatra
+/schema/                @purposesource/stewards
+/scripts/               @purposesource/stewards
+/config/                @purposesource/stewards
+/.github/               @purposesource/stewards

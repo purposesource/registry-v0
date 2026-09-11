@@ -328,6 +328,21 @@ this scaffold had to pick a side of in order to run at all.
    tracked as PS-O14; the file goes back to the team on the day the team exists. The
    verification above stands unchanged: confirm on the first pull request that a review
    is actually requested.)*
+   *(Updated 2026-09-11: the team exists — `@purposesource/stewards`, id 19450495, created
+   2026-09-11T11:42:17Z, two members — and `.github/CODEOWNERS` names it again on all **six**
+   of its rows, which is what the note above said would happen on the day its condition was
+   met. Six and not the eight that note counted: `/ledger/` and `/ct/` were retired on
+   2026-09-09 with the move of both trees to {ORG}/website, and their rules went with them.
+   The item does not close here, because the two measurements taken the same day say it is
+   not finished: `orgs/purposesource/teams/stewards/repos` returns `[]` and the team object
+   reports `repos_count: 0`, so the team has no access to this repository and GitHub
+   resolves a team as a code owner only where it has write access; and
+   `branches/main/protection` still reports `required_pull_request_reviews: null`, so no
+   review is required of anyone. Two operator acts remain and their ORDER matters — grant
+   the team write, then require the review; the reverse produces a rule nobody can satisfy.
+   The file's own header carries the detail. The verification above still stands, and it is
+   now the thing that decides this item: confirm on the next pull request that a review is
+   actually requested of the team.)*
 7. **The full CC0 legal code is not vendored** — `LICENSE-DATA` carries the dedication
    notice and the canonical URL. Vendor the full text before the repository is made public.
    *(Closed 2026-09-08: `LICENSE-DATA` now carries the full CC0 1.0 Universal legal code

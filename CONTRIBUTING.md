@@ -32,6 +32,14 @@ transparency log since FS-00 §6.10's ruling of 2026-09-07 and whose trees here 
 There is no self-service write path at v0. Every change is a pull request, reviewed and
 merged by the steward operator (CODEOWNERS + branch protection; FS02-060).
 
+*(Dated note, 2026-09-11: `.github/CODEOWNERS` now names the organisation team
+`@purposesource/stewards` on every path, where it named a single login from 2026-09-08.
+Read what that file says about its own limits before you rely on it: measured read-only the
+same day, the team holds no repository access yet and this branch carries no required-review
+rule, so a review is **requested** of the stewards and not yet **required** of them. Both
+are operator acts, in that order. Nothing about how you open a pull request changes; what
+changes is who is asked to read it.)*
+
 ### 1. Registering a repository
 
 Adoption happens in the project's **own** repository: the maintainer commits the licence
