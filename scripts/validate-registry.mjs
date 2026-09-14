@@ -18,22 +18,71 @@ import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { Failures, ROOT, categoryMenu, config, parseArgs, readJsonFile, schemaValidator } from './lib/repo.mjs';
-import { REGISTRY_DIR, STATES, entryFileName, loadRegistry, shardOf } from './lib/registry.mjs';
+import { REGISTRY_DIR, STATES, entryFileName, loadRegistry, registryDigest, shardOf } from './lib/registry.mjs';
 
-// `--dir` exists so the tests can validate fixture registries; `--allow-no-examples` so a
-// fixture directory is not forced to carry a seeded example of its own.
+// `--dir` exists so the tests can validate fixture registries; `--config` so they can hand
+// this gate a publication config of their own — which is the only way to exercise the
+// freeze rule below without freezing the real registry to test it. `--allow-no-examples`
+// so a fixture directory is not forced to carry a seeded example.
 const args = parseArgs(process.argv.slice(2), {
   flags: ['allow-no-examples'],
-  values: ['dir'],
-  defaults: { dir: 'registry' },
+  values: ['dir', 'config'],
+  defaults: { dir: 'registry', config: 'config/publish.json' },
 });
 
-const cfg = config();
+const cfg = args.config === 'config/publish.json' ? config() : readJsonFile(join(ROOT, args.config));
 const DIR = args.dir === 'registry' ? REGISTRY_DIR : join(ROOT, args.dir);
 const label = args.dir.split('\\').join('/');
 const failures = new Failures(`registry(${label})`);
 const SCHEMA_FILE = 'registry-v0-record.v1.json';
 const validate = schemaValidator(SCHEMA_FILE);
+
+// --------------------------------------------------------------------------- the freeze
+//
+// FS02-064 and FS-00 §2: at P-M3 this repository is frozen and archived with a pointer to
+// the export endpoints. `config/publish.json`'s `frozen` block is that act, and this is
+// what makes it bite -- NO WORKFLOW EDIT REQUIRED, which is the point: `registry-ci` already
+// runs this script on every push and every pull request, so the day the block is filled in,
+// the next change to a record is red on a gate that was already there.
+//
+// NULL MEANS OPEN, and it is null today. Nothing is computed, nothing is compared, and the
+// registry behaves exactly as it did before this block existed.
+//
+// NON-NULL MEANS THE TREE IS THE RECORD. The digest is recomputed over the directory being
+// validated and compared with the one the freeze pinned; any difference -- an edit, an
+// addition, a deletion, a rename -- fails, and the message names `exportsAt` because a
+// contributor who wanted to change a record needs to be told where the registry lives now,
+// not merely that this door is shut.
+//
+// IT IS A FAILURE, NOT A WARNING, because after the freeze these files are history: the
+// published plane is rendered from the platform's database, so an edit here would change
+// nothing a reader can fetch while making the two copies disagree about what was registered.
+{
+  const frozen = cfg.frozen ?? null;
+  if (frozen !== null) {
+    const pointer = frozen.exportsAt ?? '(no exportsAt recorded)';
+    if (typeof frozen.registryDigest !== 'string') {
+      failures.add(
+        'config/publish.json',
+        '`frozen` is set but carries no `registryDigest`, so nothing can be checked against ' +
+          'it. A freeze with no digest is a claim rather than a guard: record the digest of ' +
+          'the tree at the freeze, or set `frozen` back to null.'
+      );
+    } else {
+      const actual = registryDigest(DIR);
+      if (actual !== frozen.registryDigest) {
+        failures.add(
+          `${label}/`,
+          `the registry is FROZEN at ${frozen.at ?? 'an unrecorded date'} and this tree does not ` +
+            `match it (recorded ${frozen.registryDigest}, found ${actual}). Records are no longer ` +
+            `edited, added or removed here: the registry is served from ${pointer}, and a change ` +
+            'to a registration is made there. This repository is kept as the history of what v0 ' +
+            'was (FS02-064, FS-00 §2).'
+        );
+      }
+    }
+  }
+}
 
 // ---------------------------------------------------------------- schema/config parity
 //

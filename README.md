@@ -237,6 +237,39 @@ What is append-only *here* is `registry/`: an entry is corrected forward and a s
 is a new value on the record, never a rewriting of what was published — the reviewer's job
 that `.github/CODEOWNERS` calls out for that path.
 
+## Archive at P-M3
+
+This repository has an ending written into the specification: at P-M3 it is **frozen and
+archived with a pointer to the export endpoints** (FS-00 §2, FS02-064). The registry stops
+being a directory of YAML that a pull request edits and becomes the history of what v0 was,
+while registrations live in the platform's database and are served from
+`https://api.purposesource.org/v1/registry/export.json`.
+
+The switch that performs it is already here, and it is **null**:
+
+```json
+"frozen": null
+```
+
+Filled in — `{ at, registryDigest, headSha, exportsAt }`, the shape written out in
+`config/publish.json` beside the key — `scripts/validate-registry.mjs` recomputes the digest
+over `registry/` on every run and **fails** on any difference, naming the freeze date and the
+endpoint a registration is made at instead. The digest covers file names as well as file
+bytes, so an edit, an addition, a deletion and a rename are all caught by one number; the
+grammar is the platform importer's (`V0Source.DigestOf`), so the freeze and the import
+answer the same question about the same directory.
+
+**No workflow changes when that day comes.** The validation step already runs on every push
+and every pull request, so the next change to a record after the freeze is red on a gate that
+was already there. That is the whole reason the mechanism lands before the act.
+
+**What is deliberately not done yet.** Nothing is frozen: `frozen` is null, every record is
+still editable, and the gate computes no digest at all. The freeze commit itself, the
+rewrite of this README's top banner to the archived form, and the GitHub *Archive repository*
+toggle are later acts, and each waits on the platform plane existing and serving the pointer
+above. `tests/freeze.test.mjs` holds the mechanism to all of it — including the assertion
+that this tree is not frozen.
+
 ## Licensing
 
 Two licences, on purpose:

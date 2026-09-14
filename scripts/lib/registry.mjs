@@ -3,7 +3,8 @@
 // a deterministic order and answering the two questions every consumer asks: what is the
 // canonical filename for an entry, and which index shard does it belong to.
 
-import { readdirSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { ROOT, readYamlFile } from './repo.mjs';
@@ -80,6 +81,9 @@ export function byOwnerName(a, b) {
   return a.node_id < b.node_id ? -1 : a.node_id > b.node_id ? 1 : 0;
 }
 
+/** Is this a registry record file? The one answer `loadRegistry` and `registryDigest` share. */
+const isRecordFile = (name) => name.endsWith('.yml') || name.endsWith('.yaml');
+
 /**
  * Reads every registry/*.yml.
  *
@@ -99,7 +103,7 @@ export function loadRegistry(dir = REGISTRY_DIR) {
     return [];
   }
   const entries = files
-    .filter((f) => f.endsWith('.yml') || f.endsWith('.yaml'))
+    .filter(isRecordFile)
     .sort()
     .map((file) => {
       const data = readYamlFile(join(dir, file));
@@ -113,6 +117,40 @@ export function loadRegistry(dir = REGISTRY_DIR) {
     const b = y.data && typeof y.data.node_id === 'string' ? y.data.node_id : '￿' + y.file;
     return a < b ? -1 : a > b ? 1 : 0;
   });
+}
+
+/**
+ * The digest of a registry tree — what a freeze pins and what a later push is measured
+ * against (`config/publish.json`'s `frozen.registryDigest`, FS02-064).
+ *
+ * THE GRAMMAR IS THE IMPORTER'S, deliberately. `V0Source.DigestOf` in the platform's
+ * `Psn.Data` reads this same directory when the v0 plane is imported, as
+ * `{name}
+{sha256 of the file's bytes}
+` per file in ordinal name order, hashed. One
+ * grammar means the freeze and the import answer the same question about the same bytes,
+ * and a digest recorded by either is checkable by the other — two spellings of "what is in
+ * this directory" would be two answers nobody could reconcile at the one moment it matters.
+ *
+ * NAMES AS WELL AS BYTES, so one number catches all three ways a registry can move: an
+ * edit changes a byte digest, an addition or a deletion changes the listing, and a rename
+ * changes both. Byte digests rather than modification times, because a checkout's times
+ * are whenever git happened to write the files.
+ */
+export function registryDigest(dir = REGISTRY_DIR) {
+  let files;
+  try {
+    files = readdirSync(dir);
+  } catch {
+    files = [];
+  }
+  let listing = '';
+  for (const name of files.filter(isRecordFile).sort()) {
+    listing += `${name}
+${createHash('sha256').update(readFileSync(join(dir, name))).digest('hex')}
+`;
+  }
+  return createHash('sha256').update(listing, 'utf8').digest('hex');
 }
 
 /** Entries eligible for publication: everything not marked `example: true`. */
