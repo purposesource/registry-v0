@@ -4,7 +4,7 @@
   "title": "registry-v0 record — one curated YAML file per registered repository",
   "description": "The P-M2-only, PR-curated registry source of truth: one file `registry/{owner}--{name}.yml` in the public curated registry repository (FS-02 §7 FS02-060). THIS is the schema that repository validates against — it holds a byte-identical vendored copy and its CI fails on any byte difference, so there is one record contract rather than two that agree by habit. The filename is derived from `owner` and `name`, lowercased and joined by `--`, because an opaque `R_kgDO…` filename makes a curation pull request unreviewable at a glance; `node_id` remains the primary key in every artifact and every reference (FS-02 §7's `repos/{node_id}.yml` is the chapter's earlier form). Consumed by the index-build-lite job that renders the published artifacts (VS-04). Three hard constraints carry legal weight: (1) there is NO `waivers` field and there never will be — waivers are issued only by a claimed admin from the platform dashboard (D14), so no waiver can enter the registry by pull request; (2) the YAML file is a CACHE of display facts, while the repository's own committed LICENSE file is the truth about adoption (D13); (3) this whole repository is data class P0-public (FS-00 §6.9), so the only person-identifying data a record may hold is a GitHub login — the `contacts` patterns make an e-mail address structurally unrepresentable (D15). Frozen and archived at P-M3 with a pointer to the export endpoints (FS-00 §2).",
   "x-psn": {
-    "specVersion": "1.1.0",
+    "specVersion": "1.2.0",
     "phase": "P-M2 only",
     "artifactPath": "(curated registry repository) registry/{owner}--{name}.yml",
     "authoritative": false,
@@ -32,7 +32,11 @@
     },
     "owner": {
       "$ref": "#/$defs/githubLogin",
-      "description": "Owner login. DISPLAY CACHE ONLY — refreshed by the operator on a rename; never a key, never money-bearing (FS02-017)."
+      "description": "Owner login. DISPLAY CACHE ONLY — refreshed by the operator on a rename; never a key, never money-bearing (FS02-017). The owner's key is `owner_node_id`."
+    },
+    "owner_node_id": {
+      "$ref": "#/$defs/githubOwnerNodeId",
+      "description": "Optional. The GitHub node_id of the repository's owner account, in the current global-id form (`O_…` organisation, `U_…` user). THE key a Portfolio Entitlement is bought against and matched on (ops decision D42 item 3): index-build publishes it as `repo-record.v1` `owner.orgId` and `registry-index.v1` `ownerOrgId`, and cov-v1 compares a portfolio term's `scope.org` with it (FS-10 §4.3 step 5c). Every record of one owner carries the same value, and the validator refuses a conflict. Absent means none is recorded: the repository can be covered by a Project or the Pass, and no Portfolio can be bought for its owner. Existence cannot be validated at v0, as for `node_id`."
     },
     "name": {
       "type": "string",
@@ -203,6 +207,11 @@
       "type": "string",
       "pattern": "^(R_[A-Za-z0-9_-]{6,118}|MDEwOlJlcG9zaXRvcnk[A-Za-z0-9+/=]{1,96})$",
       "description": "A GitHub GraphQL REPOSITORY node_id, in either of the two forms that exist: the current `R_`-prefixed form and the legacy base64 form, whose decoded value begins `010:Repository`. The pattern narrows the legacy branch to that prefix; the validator additionally base64-decodes and asserts `010:Repository<number>`, which no pattern can do. That check matters because this is the FS02-095 one-node_id-one-registration key: a user or organisation node_id must not pass."
+    },
+    "githubOwnerNodeId": {
+      "type": "string",
+      "pattern": "^[OU]_[A-Za-z0-9_-]{6,118}$",
+      "description": "A GitHub GraphQL node_id of a repository OWNER in the current global-id form: `O_…` for an organisation, `U_…` for a user account. The legacy base64 owner forms are not admitted; GitHub returns the current form for any owner when asked with the `X-Github-Next-Global-ID: 1` header. `registry-index.v1` `ownerOrgId` carries this same pattern. `repo-record.v1` `owner.orgId` and `entitlement-record.v1` `scope.org` keep their broader released patterns, which would also admit a login, so producers write only the `O_…`/`U_…` form. A repository node_id (`R_…`) does not pass, which keeps this key apart from the FS02-095 registration key."
     },
     "categorySlug": {
       "enum": [

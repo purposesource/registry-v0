@@ -9,13 +9,16 @@
 # honesty failure this system could ship.
 #
 # It also uses the current `R_`-prefixed node_id form and a `major` weight class, so the
-# approval-reference rule (FS02-071) has a passing case.
+# approval-reference rule (FS02-071) has a passing case. And it records the owner's node id
+# (`owner_node_id`, ops decision D42), so the demo plane's schema gate checks a published
+# `owner.orgId` and `ownerOrgId` against the contracts.
 
 schema: registry-v0/1
 example: true
 
 node_id: R_kgDOEXAMPLE0001
 owner: psn-example-org
+owner_node_id: O_kgDOEXAMPLE01
 name: widget-engine
 default_branch: main
 

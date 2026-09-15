@@ -163,6 +163,7 @@ function indexEntry(e) {
   return {
     nodeId: e.node_id,
     owner: e.owner,
+    ...(typeof e.owner_node_id === 'string' ? { ownerOrgId: e.owner_node_id } : {}),
     name: e.name,
     state: e.state,
     weightClass: e.weight_class,
@@ -249,10 +250,11 @@ for (const e of listed) {
     generatedAt: now,
     source: SOURCE,
     nodeId: e.node_id,
-    // An object, not a login string: the contract keeps room for the owner organisation's
-    // node id and account type, and this producer has neither. `{ login }` alone is the
-    // whole honest answer — the curated record carries a display login and nothing more.
-    owner: { login: e.owner },
+    // An object, not a login string: `login` always, and `orgId` — the owner's node id, the
+    // key a Portfolio Entitlement's `scope.org` names (D42) — when the curated record carries
+    // `owner_node_id`. The account type stays absent: the curated record has none, and none
+    // is inferred.
+    owner: typeof e.owner_node_id === 'string' ? { login: e.owner, orgId: e.owner_node_id } : { login: e.owner },
     name: e.name,
     defaultBranch: e.default_branch,
     state: e.state,

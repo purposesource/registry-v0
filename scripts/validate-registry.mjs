@@ -7,8 +7,9 @@
 // schema/registry-v0-record.v1.json — the VENDORED copy of the published record contract,
 // byte-identical to it and checked against it in CI — then applies the checks a JSON
 // Schema cannot express: filename agreement, cross-repo uniqueness, node_id decodability,
-// date sanity, the conditional weight-class approval rule, the no-PII rule, and the
-// schema/config agreement that keeps the category menu from drifting.
+// one owner one `owner_node_id` (D42), date sanity, the conditional weight-class approval
+// rule, the no-PII rule, and the schema/config agreement that keeps the category menu from
+// drifting.
 //
 // FS02-063: any failure here FAILS THE BUILD. A broken registry never half-publishes,
 // because a half-published registry is a set of public claims about other people's
@@ -149,6 +150,8 @@ const loaded = loadRegistry(DIR);
 const byNodeId = new Map();
 const byFileName = new Map();
 const byOwnerName = new Map();
+/** `{ file, login, id }` per record, for the one-owner-one-node-id rule after the loop (D42). */
+const ownerIds = [];
 
 // The keys a registry entry may never carry, with the reason a contributor needs to read.
 // `additionalProperties: false` already rejects them; this turns the rejection into an
@@ -246,6 +249,18 @@ for (const { file, data } of loaded) {
     }
   }
 
+  // --- owner_node_id ------------------------------------------------------------------
+  // The owner's node id is THE key a Portfolio Entitlement is bought against and matched on
+  // (ops decision D42 item 3), so it must mean one owner everywhere. The pattern is the
+  // schema's; what a schema cannot see is agreement ACROSS records, which is collected here
+  // and judged once every record has been read (below the loop). Logins are compared
+  // lowercased, because GitHub's are case-insensitive.
+  ownerIds.push({
+    file,
+    login: data.owner,
+    id: typeof data.owner_node_id === 'string' ? data.owner_node_id : null,
+  });
+
   // --- state --------------------------------------------------------------------------
   if (typeof data.state === 'string' && !STATES.includes(data.state)) {
     failures.add(at, `state must be one of ${STATES.join(' | ')} (FS-02 §3, verbatim).`);
@@ -300,6 +315,65 @@ for (const { file, data } of loaded) {
   const shard = shardOf(data.name);
   if (!/^[a-z0]$/.test(shard)) {
     failures.add(at, `internal: shardOf("${data.name}") returned "${shard}", which is not in the closed shard set.`);
+  }
+}
+
+// ------------------------------------------------------------- one owner, one node id
+//
+// Ops decision D42 item 3: a Portfolio Entitlement is bought against, and matched on, the
+// owner's node id, which index-build publishes as the repo record's `owner.orgId` and the
+// index entry's `ownerOrgId`. So the id has to name ONE owner wherever it appears, and every
+// record of one owner has to agree about it. A login under two ids would split one owner's
+// repositories across two Portfolio keys; an id under two logins would let one Portfolio
+// cover two owners; and an owner carrying the id on only some of its records would leave the
+// rest outside a Portfolio bought for it. Records are judged in filename order, so the
+// "other file" a message names is the same on every run.
+{
+  const inFileOrder = [...ownerIds].sort((a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : 0));
+  const byLogin = new Map();
+  const byId = new Map();
+  for (const r of inFileOrder) {
+    const key = r.login.toLowerCase();
+    if (!byLogin.has(key)) byLogin.set(key, []);
+    byLogin.get(key).push(r);
+    if (r.id !== null) {
+      if (!byId.has(r.id)) byId.set(r.id, []);
+      byId.get(r.id).push(r);
+    }
+  }
+
+  for (const records of byLogin.values()) {
+    const first = records.find((r) => r.id !== null);
+    if (!first) continue; // no record of this owner carries one, which is consistent
+    for (const r of records) {
+      if (r === first) continue;
+      if (r.id === null) {
+        failures.add(
+          `${label}/${r.file}`,
+          `owner ${r.login} has no owner_node_id, but registry/${first.file} records ${first.id} for it. ` +
+            'Every record of one owner carries the same node id, or none does.'
+        );
+      } else if (r.id !== first.id) {
+        failures.add(
+          `${label}/${r.file}`,
+          `owner ${r.login} carries owner_node_id ${r.id}, but registry/${first.file} records ${first.id} ` +
+            'for the same owner. One owner has one node id.'
+        );
+      }
+    }
+  }
+
+  for (const [id, records] of byId) {
+    const first = records[0];
+    for (const r of records.slice(1)) {
+      if (r.login.toLowerCase() !== first.login.toLowerCase()) {
+        failures.add(
+          `${label}/${r.file}`,
+          `owner_node_id ${id} is recorded for ${r.login} and for ${first.login} (registry/${first.file}). ` +
+            'One node id is one owner.'
+        );
+      }
+    }
   }
 }
 

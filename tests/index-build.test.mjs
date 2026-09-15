@@ -275,6 +275,50 @@ test('the record and the index carry the published member names, and nothing bes
   assert.deepEqual(meta.delisted.sort(), ['R_kgDOFIXTUREC003', 'R_kgDOFIXTURED004', 'R_kgDOFIXTUREE005']);
 });
 
+test("an owner node id is published as the record's `owner.orgId` and the entry's `ownerOrgId` (D42)", (t) => {
+  const ws = workspace('ownerid', {});
+  t.after(() => cleanup(ws));
+  const out = `${ws}/dist`;
+  build(out);
+
+  // `psn-fixture-c` is the fixture owner whose curated record carries `owner_node_id`. That
+  // id is the key a Portfolio Entitlement's `scope.org` names, so the record publishes it
+  // beside the display login, and the index entry carries it so an owner's repositories can
+  // be listed from the index alone.
+  const rec = readOut(out, 'registry/repo/R_kgDOFIXTUREC003.json');
+  assert.deepEqual(rec.owner, { login: 'psn-fixture-c', orgId: 'O_kgDOFixture01' });
+
+  const entry = readOut(out, 'registry/index/c.json').entries.find((r) => r.nodeId === 'R_kgDOFIXTUREC003');
+  assert.equal(entry.ownerOrgId, 'O_kgDOFixture01');
+  assert.deepEqual(Object.keys(entry).sort(), [
+    'adoptedAt',
+    'apacheConversionDate',
+    'badgeUrl',
+    'licenseId',
+    'licenseVersion',
+    'name',
+    'nodeId',
+    'owner',
+    'ownerOrgId',
+    'pageUrl',
+    'recordUrl',
+    'state',
+    'weightClass',
+  ]);
+  // Emitted in the published property order: directly after the login it keys.
+  assert.deepEqual(Object.keys(entry).slice(0, 3), ['nodeId', 'owner', 'ownerOrgId']);
+  assert.deepEqual(
+    readOut(out, 'registry.json').entries.find((r) => r.nodeId === 'R_kgDOFIXTUREC003'),
+    entry,
+    'the same repository is the same entry in the shard and in the export'
+  );
+
+  // A record without `owner_node_id` publishes neither member: nothing is inferred from the
+  // login, and no Portfolio term can match that repository.
+  assert.deepEqual(readOut(out, 'registry/repo/R_kgDOFIXTUREA001.json').owner, { login: 'psn-fixture-a' });
+  assert.equal(readOut(out, 'registry/index/a.json').entries[0].ownerOrgId, undefined);
+});
+
 test('every artifact whose schema admits it declares which plane produced it', (t) => {
   const ws = workspace('source', {});
   t.after(() => cleanup(ws));

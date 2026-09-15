@@ -115,9 +115,11 @@ outside it: adding a public URL is a specification amendment, not a build change
 FS-00 §6.2 amendment note of that date makes the published schemas the profile of the frozen
 contract: a shape a schema does not admit is a defect here. So, in the emitted plane:
 
-- An **index entry** is `{nodeId, owner, name, state, weightClass, licenseId, licenseVersion,
-  adoptedAt, apacheConversionDate, recordUrl, badgeUrl, pageUrl}` — the minimum a browse page
-  or a scanner needs, with absolute URLs to everything else about the repository. The shards
+- An **index entry** is `{nodeId, owner, ownerOrgId?, name, state, weightClass, licenseId,
+  licenseVersion, adoptedAt, apacheConversionDate, recordUrl, badgeUrl, pageUrl}` — the minimum
+  a browse page or a scanner needs, with absolute URLs to everything else about the repository.
+  `ownerOrgId` is the owner's node id, present when the curated record carries `owner_node_id`
+  (ops decision D42), so an owner's repositories can be listed from the index alone. The shards
   and the bulk export are the SAME document shape; only `shard` differs (`export` on the
   bulk one), so a consumer reads both with one code path.
 - **Meta** carries `shards[{shard, url, count}]`, `exportUrl`, `totals` (`listed` plus the
@@ -129,7 +131,9 @@ contract: a shape a schema does not admit is a defect here. So, in the emitted p
   `/registry.json` that FS10-060 also gives that document is mounted on the site apex. This
   build writes the file at `registry.json` because that is where the deploying step reads
   it; an emit path is not an address anyone serves.
-- A **record** has `owner: {login}`, licence dates under their `…At` names, `links`,
+- A **record** has `owner: {login, orgId?}` (`orgId` is the owner's node id when the curated
+  record carries `owner_node_id`, D42; no account type is inferred), licence dates under their
+  `…At` names, `links`,
   `waivers: {count, url}` and `badge: {url, state}`. It has **no `manifest` block**: v0 never
   parses `PURPOSE.yml`, and `present: false` would report on a file this build never looked
   for. It has no state-change date either — the curated record contract has none, and

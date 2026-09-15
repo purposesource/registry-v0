@@ -1,7 +1,9 @@
 # FIXTURE. state: suspended -> listed with a neutral badge (WEB-085).
+# Carries `owner_node_id` (D42): the record's `owner.orgId` and the index entry's `ownerOrgId`.
 schema: registry-v0/1
 node_id: R_kgDOFIXTUREC003
 owner: psn-fixture-c
+owner_node_id: O_kgDOFixture01
 name: charlie-svc
 default_branch: main
 state: suspended

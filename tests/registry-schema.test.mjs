@@ -295,3 +295,127 @@ test('an adoption dated before the licence version existed fails the gate', (t) 
   assert.equal(r.code, 1);
   assert.match(r.stderr, /precedes license\.published/);
 });
+
+// ---------------------------------------------------- one owner, one node id (D42 item 3)
+//
+// `owner_node_id` is the key a Portfolio Entitlement is bought against and matched on. The
+// schema holds its shape; the gate holds agreement ACROSS records, which no schema can see.
+
+test('owner_node_id is optional and, when present, a GitHub OWNER node id', () => {
+  assert.equal(GOOD.owner_node_id, undefined, 'the known-good record carries none');
+  assert.deepEqual(validate(GOOD), [], 'absent means none is recorded, and is valid');
+  assert.deepEqual(validate(mutated({ owner_node_id: 'O_kgDOAcme001' })), [], 'an organisation id');
+  assert.deepEqual(validate(mutated({ owner_node_id: 'U_kgDOUser0001' })), [], 'a user account id');
+  for (const bad of [
+    'psn-fixture-a', // a login: the display cache is never the key
+    'R_kgDOAbc123', // a repository node id: the FS02-095 registration key, not an owner's
+    'MDEyOk9yZ2FuaXphdGlvbjEyMzQ=', // the legacy base64 owner form is not admitted
+    'O_short',
+    '',
+  ]) {
+    assert.ok(validate(mutated({ owner_node_id: bad })).length > 0, `${JSON.stringify(bad)} must be rejected`);
+  }
+});
+
+const ALPHA = 'psn-fixture-a--alpha-tool.yml';
+const ALPHA_TWO = 'psn-fixture-a--alpha-two.yml';
+
+/** A record's text with `owner_node_id: <id>` directly after its `owner:` line. */
+function withOwnerId(text, id) {
+  return text.replace(/^(owner: .*)$/m, `$1\nowner_node_id: ${id}`);
+}
+
+/**
+ * Validates a workspace copy of the all-states registry holding a second repository of
+ * `psn-fixture-a`, derived from the known-good record. `first` and `second` are the owner ids
+ * the two records carry (`null` for none); `secondOwner` is how the second spells the login.
+ */
+function validateTwoAlphas(prefix, t, { first, second, secondOwner = 'psn-fixture-a' }) {
+  const ws = workspace(prefix, { registry: 'tests/fixtures/registry-all-states' });
+  t.after(() => cleanup(ws));
+  const dir = join(REPO, ws, 'registry');
+  const good = readFileSync(join(dir, ALPHA), 'utf8');
+  const two = good
+    .replace('node_id: R_kgDOFIXTUREA001', 'node_id: R_kgDOFIXTUREA009')
+    .replace('owner: psn-fixture-a', `owner: ${secondOwner}`)
+    .replace('name: alpha-tool', 'name: alpha-two');
+  writeFileSync(join(dir, ALPHA), first ? withOwnerId(good, first) : good, 'utf8');
+  writeFileSync(join(dir, ALPHA_TWO), second ? withOwnerId(two, second) : two, 'utf8');
+  return runScript('validate-registry.mjs', ['--dir', `${ws}/registry`, '--allow-no-examples']);
+}
+
+test('records of one owner that agree on owner_node_id pass the gate, logins compared lowercased', (t) => {
+  const r = validateTwoAlphas('owner-same', t, {
+    first: 'O_kgDOFixtureA1',
+    second: 'O_kgDOFixtureA1',
+    secondOwner: 'PSN-Fixture-A',
+  });
+  assert.equal(r.code, 0, r.stderr);
+});
+
+test('one login under two owner_node_id values fails the gate', (t) => {
+  const r = validateTwoAlphas('owner-two-ids', t, { first: 'O_kgDOFixtureA1', second: 'U_kgDOFixtureA2' });
+  assert.equal(r.code, 1);
+  assert.ok(
+    r.stderr.includes(
+      `${ALPHA_TWO}: owner psn-fixture-a carries owner_node_id U_kgDOFixtureA2, but registry/${ALPHA} ` +
+        'records O_kgDOFixtureA1 for the same owner. One owner has one node id.'
+    ),
+    r.stderr
+  );
+});
+
+test('a login spelled in another case is still the same owner', (t) => {
+  const r = validateTwoAlphas('owner-case', t, {
+    first: 'O_kgDOFixtureA1',
+    second: 'O_kgDOFixtureA2',
+    secondOwner: 'PSN-Fixture-A',
+  });
+  assert.equal(r.code, 1);
+  assert.match(r.stderr, /owner PSN-Fixture-A carries owner_node_id O_kgDOFixtureA2/);
+});
+
+test('one owner_node_id under two logins fails the gate', (t) => {
+  const ws = workspace('owner-one-id', { registry: 'tests/fixtures/registry-all-states' });
+  t.after(() => cleanup(ws));
+
+  // `psn-fixture-c` already records O_kgDOFixture01; give `psn-fixture-a` the same id.
+  const target = join(REPO, ws, 'registry', ALPHA);
+  writeFileSync(target, withOwnerId(readFileSync(target, 'utf8'), 'O_kgDOFixture01'), 'utf8');
+
+  const r = runScript('validate-registry.mjs', ['--dir', `${ws}/registry`, '--allow-no-examples']);
+  assert.equal(r.code, 1);
+  assert.ok(
+    r.stderr.includes(
+      'psn-fixture-c--charlie-svc.yml: owner_node_id O_kgDOFixture01 is recorded for psn-fixture-c and for ' +
+        `psn-fixture-a (registry/${ALPHA}). One node id is one owner.`
+    ),
+    r.stderr
+  );
+});
+
+test('an owner whose records disagree about having an owner_node_id fails the gate', (t) => {
+  const r = validateTwoAlphas('owner-partial', t, { first: null, second: 'O_kgDOFixtureA2' });
+  assert.equal(r.code, 1);
+  assert.ok(
+    r.stderr.includes(
+      `${ALPHA}: owner psn-fixture-a has no owner_node_id, but registry/${ALPHA_TWO} records O_kgDOFixtureA2 ` +
+        'for it. Every record of one owner carries the same node id, or none does.'
+    ),
+    r.stderr
+  );
+});
+
+test('a login or a repository node id in owner_node_id fails the gate and names the member', (t) => {
+  for (const [prefix, bad] of [['owner-login', 'psn-fixture-a'], ['owner-repo-id', 'R_kgDOFIXTUREA001']]) {
+    const ws = workspace(prefix, { registry: 'tests/fixtures/registry-all-states' });
+    t.after(() => cleanup(ws));
+    const target = join(REPO, ws, 'registry', ALPHA);
+    writeFileSync(target, withOwnerId(readFileSync(target, 'utf8'), bad), 'utf8');
+
+    const r = runScript('validate-registry.mjs', ['--dir', `${ws}/registry`, '--allow-no-examples']);
+    assert.equal(r.code, 1, `${bad} must fail the gate`);
+    assert.match(r.stderr, /psn-fixture-a--alpha-tool\.yml/);
+    assert.match(r.stderr, /owner_node_id/);
+  }
+});

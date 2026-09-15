@@ -75,6 +75,7 @@ Things the validator will tell you about, so you do not have to remember them:
 |---|---|
 | name the file anything but `{owner}--{name}.yml`, lowercased | the exact filename it wants |
 | reuse a `node_id` | which other file already has it |
+| give one owner two `owner_node_id` values, give one `owner_node_id` to two owners, or record it on only some of an owner's files | which other file records that owner's node id |
 | use a state outside the FS-02 enum | the five legal values |
 | set `weight_class: major` without an approval reference | that merging is the approval, so it must be reviewable |
 | mark a repository `quit`/`delisted` with no reason class | that a tombstone page with no reason reads as an accusation |
