@@ -21,9 +21,9 @@
     "repositories' gates assert it.",
     "",
     "PROVISIONAL. The category NAMES are published. `provisional` stays true because the",
-    "Recipient List — the named organisations inside each category — is adopted at the founding",
-    "assembly and published as the versioned annex to the statutes; no recipient is listed yet.",
-    "Flip it to false when that annex is published, and never before."
+    "Recipient List — the named organisations inside each category — is adopted by the board at its constituting",
+    "meeting and published as a versioned board list outside the statutes; no recipient is listed yet.",
+    "Flip it to false when that list is published, and never before."
   ],
   "provisional": true,
   "categories": [

@@ -331,8 +331,8 @@ this scaffold had to pick a side of in order to run at all.
    both match what is published. The provisional six-fund placeholder menu is gone, and so
    is the drift between this repository's slugs and the website's. `provisional` stays true
    for one reason only: the named organisations inside each category — the Recipient List —
-   are adopted at the founding assembly and published as the annex to the statutes, and
-   none is listed yet. The category NAMES are published.
+   are adopted by the board at its constituting meeting and published as a versioned board list
+   outside the statutes, and none is listed yet. The category NAMES are published.
 4. **The transparency-log type tokens for the two non-certificate JWS families.**
    `entitlement-record` and `ct-checkpoint` are this repository's names for them. If the
    contracts repository freezes different tokens, `schema/ct-segment.v1.json` is the one
