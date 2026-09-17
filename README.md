@@ -413,3 +413,4 @@ this scaffold had to pick a side of in order to run at all.
    here: every published hash depends on it". It was the ledger chain's canonicalizer and
    went with the chain; the same reading is now `website/tools/lib/jcs.mjs`, and the hashes
    that depend on it are that repository's.)*
+
